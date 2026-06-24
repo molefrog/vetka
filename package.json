@@ -15,6 +15,7 @@
     "build:notch": "bun run --cwd notch build"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.106.0",
     "@atcute/atproto": "^4.0.2",
     "@atcute/client": "^5.1.0",
     "@atcute/identity-resolver": "^2.0.0",

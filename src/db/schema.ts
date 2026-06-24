@@ -87,6 +87,25 @@ export const tangledSession = pgTable('tangled_session', {
 // Websites — one per user (regular) or per tangled identity
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Agent sessions — one persistent Anthropic Managed Agent session per user
+// ---------------------------------------------------------------------------
+
+export const agentSession = pgTable('agent_session', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' })
+    .unique(),
+  sessionId: text('session_id').notNull().unique(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+})
+
+// ---------------------------------------------------------------------------
+// Websites
+// ---------------------------------------------------------------------------
+
 export const website = pgTable('website', {
   id: uuid('id').primaryKey().defaultRandom(),
   // regular user path
