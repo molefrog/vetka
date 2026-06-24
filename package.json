@@ -1,40 +1,65 @@
 {
   "name": "vetka",
-  "version": "0.1.0",
   "private": true,
+  "type": "module",
+  "imports": {
+    "#/*": "./src/*"
+  },
   "scripts": {
-    "dev": "node node_modules/next/dist/bin/next dev",
-    "build": "node node_modules/next/dist/bin/next build",
-    "start": "node node_modules/next/dist/bin/next start"
+    "dev": "vite dev --port 3000 --host 127.0.0.1",
+    "generate-routes": "tsr generate",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@atcute/atproto": "^4.0.2",
     "@atcute/client": "^5.1.0",
     "@atcute/identity-resolver": "^2.0.0",
+    "@atcute/lexicons": "^2.0.1",
     "@atcute/oauth-browser-client": "^4.0.0",
     "@atcute/tangled": "^2.0.8",
+    "@tailwindcss/vite": "^4.1.18",
+    "@tanstack/react-devtools": "latest",
+    "@tanstack/react-router": "latest",
+    "@tanstack/react-router-devtools": "latest",
+    "@tanstack/react-router-ssr-query": "latest",
+    "@tanstack/react-start": "latest",
+    "@tanstack/router-plugin": "^1.132.0",
+    "better-auth": "^1.6.20",
     "clsx": "^2.1.1",
-    "drizzle-kit": "^0.31.10",
     "drizzle-orm": "^0.45.2",
-    "next": "16.2.9",
+    "lucide-react": "^0.545.0",
+    "motion": "^12.41.0",
     "postgres": "^3.4.9",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "tailwind-merge": "^3.6.0"
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "tailwind-merge": "^3.6.0",
+    "tailwindcss": "^4.1.18"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "@bunup/plugin-tailwindcss": "^0.16.32",
+    "@tailwindcss/typography": "^0.5.16",
+    "@tanstack/devtools-vite": "latest",
+    "@tanstack/router-cli": "^1.132.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.0",
+    "@types/node": "^22.10.2",
+    "@types/pg": "^8.20.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^6.0.1",
+    "bunup": "^0.16.32",
+    "drizzle-kit": "^0.31.10",
+    "jsdom": "^28.1.0",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.0",
+    "vitest": "^4.1.5"
   },
-  "ignoreScripts": [
-    "sharp",
-    "unrs-resolver"
-  ],
-  "trustedDependencies": [
-    "sharp",
-    "unrs-resolver"
-  ]
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "lightningcss"
+    ]
+  }
 }
