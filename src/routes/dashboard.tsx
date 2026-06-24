@@ -1,7 +1,6 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { getAuthSession } from '../lib/session-fns'
-import { getTangledSession, deleteTangledSession } from '../lib/session-fns'
+import { getAuthSession, getTangledIdentity } from '../lib/session-fns'
 import { signOut } from '../lib/auth-client'
 import { listSshKeys, addSshKey, type SshKey } from '../lib/tangled'
 import { ensureOAuthConfigured } from '../lib/oauth'
@@ -9,10 +8,18 @@ import { cn } from '../lib/cn'
 
 export const Route = createFileRoute('/dashboard')({ component: DashboardPage })
 
+type TangledIdentity = {
+  did: string
+  handle: string
+  selectedRepoUri: string | null
+  selectedRepoName: string | null
+  selectedRepoKnot: string | null
+}
+
 type AuthState =
   | { type: 'loading' }
   | { type: 'regular'; name: string; email: string }
-  | { type: 'tangled'; did: string; handle: string; repoName: string | null; repoKnot: string | null }
+  | { type: 'tangled'; name: string; tangled: TangledIdentity }
   | { type: 'unauthenticated' }
 
 function DashboardPage() {
@@ -29,42 +36,28 @@ function DashboardPage() {
 
   useEffect(() => {
     async function loadAuth() {
-      // Try better-auth session first
       const session = await getAuthSession()
-      if (session?.user) {
-        setAuth({ type: 'regular', name: session.user.name, email: session.user.email })
+      if (!session?.user) {
+        router.navigate({ to: '/' })
         return
       }
 
-      // Try Tangled session
-      const tangledSess = await getTangledSession()
-      if (tangledSess) {
-        setAuth({
-          type: 'tangled',
-          did: tangledSess.did,
-          handle: tangledSess.handle,
-          repoName: tangledSess.selectedRepoName ?? null,
-          repoKnot: tangledSess.selectedRepoKnot ?? null,
-        })
-        // Load SSH keys for Tangled users
+      const tangled = await getTangledIdentity()
+      if (tangled) {
+        setAuth({ type: 'tangled', name: session.user.name, tangled })
         try {
           ensureOAuthConfigured()
           setKeys(await listSshKeys())
         } catch {}
-        return
+      } else {
+        setAuth({ type: 'regular', name: session.user.name, email: session.user.email })
       }
-
-      router.navigate({ to: '/' })
     }
     loadAuth()
   }, [router])
 
   async function handleSignOut() {
-    if (auth.type === 'regular') {
-      await signOut()
-    } else if (auth.type === 'tangled') {
-      await deleteTangledSession()
-    }
+    await signOut()
     router.navigate({ to: '/' })
   }
 
@@ -97,6 +90,11 @@ function DashboardPage() {
 
   if (auth.type === 'unauthenticated') return null
 
+  const displayName =
+    auth.type === 'tangled'
+      ? `@${auth.tangled.handle !== auth.tangled.did ? auth.tangled.handle : auth.tangled.did.slice(-8)}`
+      : auth.email
+
   return (
     <div className="min-h-screen px-4 py-10">
       <div className="max-w-2xl mx-auto space-y-10">
@@ -104,9 +102,7 @@ function DashboardPage() {
         <div className="flex items-center justify-between">
           <div>
             <div className="text-xl font-semibold tracking-tight">Vetka</div>
-            <div className="text-sm text-zinc-400 mt-0.5">
-              {auth.type === 'regular' ? auth.email : `@${auth.handle}`}
-            </div>
+            <div className="text-sm text-zinc-400 mt-0.5">{displayName}</div>
           </div>
           <button
             onClick={handleSignOut}
@@ -155,10 +151,10 @@ function DashboardPage() {
           <>
             <section className="space-y-3">
               <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wide">Website Repo</h2>
-              {auth.repoName ? (
+              {auth.tangled.selectedRepoName ? (
                 <div className="rounded-xl border border-zinc-200 bg-white p-4">
-                  <div className="font-medium text-sm">{auth.repoName}</div>
-                  <div className="text-xs text-zinc-400 mt-0.5">{auth.repoKnot}</div>
+                  <div className="font-medium text-sm">{auth.tangled.selectedRepoName}</div>
+                  <div className="text-xs text-zinc-400 mt-0.5">{auth.tangled.selectedRepoKnot}</div>
                   <div className="mt-3 text-xs text-zinc-500">
                     Your AI agent will build and push your website to this repo.
                   </div>

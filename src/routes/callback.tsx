@@ -2,7 +2,6 @@ import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { finalizeAuthorization } from '@atcute/oauth-browser-client'
 import { ensureOAuthConfigured } from '../lib/oauth'
-import { createTangledSession } from '../lib/session-fns'
 
 export const Route = createFileRoute('/callback')({ component: CallbackPage })
 
@@ -21,9 +20,22 @@ function CallbackPage() {
         const params = new URLSearchParams(raw)
         const { session } = await finalizeAuthorization(params)
 
-        // Create server-side session for this Tangled identity
         const did = session.info.sub
-        await createTangledSession({ data: { did, handle: did } })
+        // Use DID as handle until we resolve the actual handle
+        const handle = did
+
+        // Sign in via the better-auth Tangled plugin — sets standard session cookie
+        const res = await fetch('/api/auth/sign-in/tangled', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ did, handle }),
+          credentials: 'include',
+        })
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          throw new Error((body as { message?: string }).message ?? `Sign-in failed (${res.status})`)
+        }
 
         router.navigate({ to: '/select-repo' })
       } catch (err) {
