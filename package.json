@@ -1,16 +1,25 @@
 {
-  "name": "tangled-poc",
+  "name": "vetka",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
+    "dev": "node node_modules/next/dist/bin/next dev",
+    "build": "node node_modules/next/dist/bin/next build",
+    "start": "node node_modules/next/dist/bin/next start"
   },
   "dependencies": {
+    "@atcute/client": "^5.1.0",
+    "@atcute/identity-resolver": "^2.0.0",
+    "@atcute/oauth-browser-client": "^4.0.0",
+    "@atcute/tangled": "^2.0.8",
+    "clsx": "^2.1.1",
+    "drizzle-kit": "^0.31.10",
+    "drizzle-orm": "^0.45.2",
     "next": "16.2.9",
+    "postgres": "^3.4.9",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
