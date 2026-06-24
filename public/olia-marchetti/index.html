@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Olia Marchetti</title>
+  <link rel="preconnect" href="https://api.fontshare.com">
+  <link href="https://api.fontshare.com/v2/css?f[]=fraunces@700,400&display=swap" rel="stylesheet">
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg:        #F5F0E8;
+      --text:      #1A1814;
+      --muted:     #7A7268;
+      --accent:    #C4472A;
+      --rule:      #D4CFCA;
+      --font-serif: 'Fraunces', Georgia, serif;
+      --font-sans:  'Satoshi', system-ui, sans-serif;
+    }
+
+    html {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      font-size: 16px;
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      min-height: 100vh;
+      padding: 64px 48px 80px;
+      max-width: 640px;
+      margin: 0 auto;
+      animation: fadein 0.6s ease both;
+    }
+
+    @keyframes fadein {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ─── HEADER ────────────────────────────────────── */
+
+    header {
+      display: flex;
+      align-items: flex-start;
+      gap: 32px;
+      margin-bottom: 56px;
+    }
+
+    .header-text {
+      flex: 1;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      margin-bottom: 6px;
+    }
+
+    .role {
+      font-family: var(--font-sans);
+      font-size: 0.875rem;
+      color: var(--muted);
+      margin-bottom: 14px;
+      font-weight: 400;
+    }
+
+    .role span {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .tagline {
+      font-size: 0.9375rem;
+      color: var(--text);
+      max-width: 36ch;
+    }
+
+    /* textural image — small, tucked to the right */
+    .header-image {
+      flex-shrink: 0;
+      width: 100px;
+      height: 100px;
+      overflow: hidden;
+      border-radius: 2px;
+      opacity: 0.82;
+      filter: saturate(0.6);
+      mix-blend-mode: multiply;
+    }
+
+    .header-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* ─── SECTIONS ──────────────────────────────────── */
+
+    section {
+      padding: 40px 0;
+      border-top: 1px solid var(--rule);
+    }
+
+    section:last-of-type {
+      border-bottom: 1px solid var(--rule);
+    }
+
+    h2 {
+      font-family: var(--font-serif);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 18px;
+    }
+
+    p {
+      font-size: 0.9375rem;
+      color: var(--text);
+      max-width: 56ch;
+    }
+
+    /* ─── WORK LIST ─────────────────────────────────── */
+
+    .work-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .work-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .work-item a {
+      font-family: var(--font-serif);
+      font-size: 1.0625rem;
+      font-weight: 700;
+      color: var(--text);
+      text-decoration: none;
+      border-bottom: 1px solid var(--rule);
+      transition: border-color 0.15s ease, color 0.15s ease;
+    }
+
+    .work-item a:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .work-desc {
+      font-size: 0.875rem;
+      color: var(--muted);
+      max-width: 48ch;
+    }
+
+    /* ─── WRITING LIST ──────────────────────────────── */
+
+    .writing-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .writing-item {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .writing-item:first-child {
+      border-top: 1px solid var(--rule);
+    }
+
+    .writing-title {
+      font-size: 0.9375rem;
+      color: var(--text);
+      font-style: italic;
+      font-family: var(--font-serif);
+      font-weight: 400;
+    }
+
+    .writing-date {
+      font-size: 0.8125rem;
+      color: var(--muted);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    /* ─── CONTACT ───────────────────────────────────── */
+
+    .contact-links {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .contact-links a {
+      font-size: 0.9375rem;
+      color: var(--text);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      width: fit-content;
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.15s ease, color 0.15s ease;
+    }
+
+    .contact-links a:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .contact-label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      width: 56px;
+      display: inline-block;
+    }
+
+    /* ─── FOOTER ────────────────────────────────────── */
+
+    footer {
+      margin-top: 56px;
+      font-size: 0.8125rem;
+      color: var(--muted);
+    }
+
+    /* ─── RESPONSIVE ────────────────────────────────── */
+
+    @media (max-width: 480px) {
+      body {
+        padding: 40px 24px 64px;
+      }
+
+      header {
+        flex-direction: column-reverse;
+        gap: 20px;
+      }
+
+      .header-image {
+        width: 72px;
+        height: 72px;
+      }
+
+      h1 {
+        font-size: 1.625rem;
+      }
+
+      .writing-item {
+        flex-direction: column;
+        gap: 2px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-text">
+      <h1>Olia Marchetti</h1>
+      <p class="role">Berlin &mdash; <span>Creative Technologist at Feld Studio</span></p>
+      <p class="tagline">I make things that sit at the edge between design and code. Mostly useful, occasionally beautiful.</p>
+    </div>
+    <div class="header-image">
+      <img
+        src="https://images.are.na/eyJidWNrZXQiOiJhcmVuYV9pbWFnZXMiLCJrZXkiOiIxNjg0NTk0Mi9vcmlnaW5hbF82MDEzOWI0YzY5OGQwMmMxODcwNmExYWVkNjU1MzdlMC53ZWJwIiwiZWRpdHMiOnsicmVzaXplIjp7IndpZHRoIjo0MDAsImhlaWdodCI6NDAwLCJmaXQiOiJpbnNpZGUiLCJ3aXRob3V0RW5sYXJnZW1lbnQiOnRydWV9LCJ3ZWJwIjp7InF1YWxpdHkiOjc1fSwianBlZyI6eyJxdWFsaXR5Ijo3NX0sInJvdGF0ZSI6bnVsbH19?bc=0"
+        alt=""
+        loading="lazy"
+        aria-hidden="true"
+      >
+    </div>
+  </header>
+
+  <main>
+
+    <section aria-labelledby="now-heading">
+      <h2 id="now-heading">Now</h2>
+      <p>At Feld I'm deep in the interaction layer of a tool that lets city planners model neighborhoods — the kind of software where a misread color legend could mean a park ends up as a parking lot. It's teaching me to be very careful about information hierarchy, and I'm enjoying it more than I expected.</p>
+      <p style="margin-top: 1em;">On weekends I shoot film (Minolta X-700, usually one roll a month), putter around with the Risograph, and think about the next issue of <em>Werkzeug</em>. It's overdue. I have notes.</p>
+    </section>
+
+    <section aria-labelledby="work-heading">
+      <h2 id="work-heading">Work</h2>
+      <ul class="work-list">
+        <li class="work-item">
+          <a href="#">Pairs</a>
+          <span class="work-desc">A font pairing tool I built in a weekend. Still running, somehow. Around 2k monthly users, which continues to surprise me.</span>
+        </li>
+        <li class="work-item">
+          <a href="#">Moss</a>
+          <span class="work-desc">An ambient soundscape generator that reads live weather data from your location and turns it into something you can leave running in the background. Built with Web Audio API.</span>
+        </li>
+        <li class="work-item">
+          <a href="#">Werkzeug</a>
+          <span class="work-desc">A newsletter about tools — the ones we use to make things, and how they shape what we end up making. Six issues a year, 800 readers. The name is German for "tool."</span>
+        </li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="writing-heading">
+      <h2 id="writing-heading">Writing</h2>
+      <ul class="writing-list">
+        <li class="writing-item">
+          <span class="writing-title">The city as interface</span>
+          <span class="writing-date">Apr 2026</span>
+        </li>
+        <li class="writing-item">
+          <span class="writing-title">On learning to solder</span>
+          <span class="writing-date">Jan 2026</span>
+        </li>
+        <li class="writing-item">
+          <span class="writing-title">Why tools feel different</span>
+          <span class="writing-date">Oct 2025</span>
+        </li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="contact-heading">
+      <h2 id="contact-heading">Contact</h2>
+      <div class="contact-links">
+        <a href="mailto:olia@marchetti.io">
+          <span class="contact-label">Email</span>
+          olia@marchetti.io
+        </a>
+        <a href="https://www.are.na/olia-marchetti" target="_blank" rel="noopener">
+          <span class="contact-label">Are.na</span>
+          are.na/olia-marchetti
+        </a>
+        <a href="https://github.com/oliamarchetti" target="_blank" rel="noopener">
+          <span class="contact-label">GitHub</span>
+          github.com/oliamarchetti
+        </a>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <p>Olia Marchetti &mdash; Berlin, 2026</p>
+  </footer>
+
+</body>
+</html>
