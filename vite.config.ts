@@ -4,49 +4,38 @@ import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import type { Plugin } from 'vite'
-import { spawn } from 'child_process'
-import { copyFileSync } from 'fs'
+import { readFileSync } from 'fs'
 import path from 'path'
 
 function notchBuildPlugin(): Plugin {
-  const notchDir = path.resolve(__dirname, 'notch')
-  const srcDir = path.resolve(notchDir, 'src')
-  const bunupBin = path.resolve(__dirname, 'node_modules/.bin/bunup')
-  const distFile = path.resolve(notchDir, 'dist/index.global.js')
-  const publicFile = path.resolve(__dirname, 'public/notch.js')
-
+  const distFile = path.resolve(__dirname, 'notch/dist/index.js')
   let initialized = false
-  let building = false
-
-  function build(onDone?: () => void) {
-    if (building) return
-    building = true
-    const proc = spawn(bunupBin, [], {
-      cwd: notchDir,
-      stdio: ['ignore', 'inherit', 'inherit'],
-    })
-    proc.on('error', (e) => { building = false; console.error('[notch]', e) })
-    proc.on('exit', (code) => {
-      building = false
-      if (code === 0) {
-        try { copyFileSync(distFile, publicFile) } catch (e) { console.error('[notch] copy failed:', e) }
-        onDone?.()
-      } else {
-        console.error(`[notch] bunup exited with code ${code}`)
-      }
-    })
-  }
 
   return {
     name: 'notch-build',
     configureServer(server) {
       if (initialized) return
       initialized = true
-      build()
-      server.watcher.add(srcDir)
+
+      // Serve notch bundle directly from bunup's output dir
+      server.middlewares.use((req, res, next) => {
+        if (!req.url?.startsWith('/notch.js')) return next()
+        try {
+          const content = readFileSync(distFile)
+          res.setHeader('Content-Type', 'application/javascript')
+          res.setHeader('Cache-Control', 'no-cache')
+          res.end(content)
+        } catch {
+          res.statusCode = 503
+          res.end('// notch bundle not built - run: bun run dev:notch')
+        }
+      })
+
+      // Reload browser when bunup rebuilds
+      server.watcher.add(distFile)
       server.watcher.on('change', (file) => {
-        if (!file.startsWith(srcDir)) return
-        build(() => server.ws.send({ type: 'full-reload' }))
+        if (file !== distFile) return
+        server.ws.send({ type: 'full-reload' })
       })
     },
   }
@@ -101,7 +90,7 @@ function oauthClientMetadataPlugin(): Plugin {
 const config = defineConfig({
   resolve: { tsconfigPaths: true },
   server: { allowedHosts: ['neko.puma-scylla.ts.net'] },
-  plugins: [notchBuildPlugin(), betterAuthPlugin(), oauthClientMetadataPlugin(), devtools(), tailwindcss(), tanstackStart(), viteReact()],
+  plugins: [notchBuildPlugin(), betterAuthPlugin(), oauthClientMetadataPlugin(), devtools(), tailwindcss(), tanstackStart({ server: { preset: 'vercel' } }), viteReact()],
 })
 
 export default config
