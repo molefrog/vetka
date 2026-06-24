@@ -2,7 +2,7 @@ import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { ensureOAuthConfigured } from '../lib/oauth'
 import { listRepos, type Repo } from '../lib/tangled'
-import { saveSelectedRepo, getTangledSession } from '../lib/session-fns'
+import { saveSelectedRepo, getAuthSession, getTangledIdentity } from '../lib/session-fns'
 import { cn } from '../lib/cn'
 
 export const Route = createFileRoute('/select-repo')({ component: SelectRepoPage })
@@ -17,14 +17,18 @@ function SelectRepoPage() {
 
   useEffect(() => {
     async function load() {
-      // Check server session first
-      const session = await getTangledSession()
-      if (!session) {
+      const authSession = await getAuthSession()
+      if (!authSession?.user) {
         router.navigate({ to: '/' })
         return
       }
-      // If repo already selected, go to dashboard
-      if (session.selectedRepoUri) {
+      const tangled = await getTangledIdentity()
+      if (!tangled) {
+        // Regular user somehow got here — redirect to dashboard
+        router.navigate({ to: '/dashboard' })
+        return
+      }
+      if (tangled.selectedRepoUri) {
         router.navigate({ to: '/dashboard' })
         return
       }

@@ -72,16 +72,7 @@ export const tangledIdentity = pgTable('tangled_identity', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
 
-// Tangled OAuth session tokens (managed by @atcute but mirrored here for server-side access)
-export const tangledSession = pgTable('tangled_session', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  did: text('did')
-    .notNull()
-    .references(() => tangledIdentity.did, { onDelete: 'cascade' }),
-  token: text('token').notNull().unique(), // hashed cookie token
-  expiresAt: timestamp('expires_at').notNull(),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-})
+// Note: tangled_session table removed — Tangled users now use better-auth sessions
 
 // ---------------------------------------------------------------------------
 // Websites — one per user (regular) or per tangled identity
