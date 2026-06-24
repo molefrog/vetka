@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import { devtools } from '@tanstack/devtools-vite'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
+import { nitro } from 'nitro/vite'
 import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import type { Plugin } from 'vite'
@@ -59,38 +60,11 @@ function betterAuthPlugin(): Plugin {
   }
 }
 
-function oauthClientMetadataPlugin(): Plugin {
-  return {
-    name: 'oauth-client-metadata',
-    configureServer(server) {
-      server.middlewares.use('/api/oauth/client-metadata', (_req, res) => {
-        const appUrl = process.env.VITE_APP_URL ?? 'http://127.0.0.1:3000'
-        const clientId = process.env.VITE_OAUTH_CLIENT_ID ?? `${appUrl}/api/oauth/client-metadata`
-        const redirectUri = process.env.VITE_OAUTH_REDIRECT_URI ?? 'http://127.0.0.1:3000/callback'
-        const metadata = {
-          client_id: clientId,
-          client_name: 'Vetka',
-          client_uri: appUrl,
-          redirect_uris: [redirectUri],
-          scope: 'atproto transition:generic',
-          grant_types: ['authorization_code', 'refresh_token'],
-          response_types: ['code'],
-          token_endpoint_auth_method: 'none',
-          application_type: 'web',
-          dpop_bound_access_tokens: true,
-        }
-        res.setHeader('Content-Type', 'application/json')
-        res.setHeader('Access-Control-Allow-Origin', '*')
-        res.end(JSON.stringify(metadata))
-      })
-    },
-  }
-}
 
 const config = defineConfig({
   resolve: { tsconfigPaths: true },
   server: { allowedHosts: ['neko.puma-scylla.ts.net'] },
-  plugins: [notchBuildPlugin(), betterAuthPlugin(), oauthClientMetadataPlugin(), devtools(), tailwindcss(), tanstackStart({ server: { preset: 'vercel' } }), viteReact()],
+  plugins: [notchBuildPlugin(), betterAuthPlugin(), devtools(), tailwindcss(), tanstackStart(), nitro({ preset: process.env.NODE_ENV === 'production' ? 'vercel' : 'bun' }), viteReact()],
 })
 
 export default config

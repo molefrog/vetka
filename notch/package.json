@@ -1,5 +1,9 @@
 {
   "name": "notch",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "scripts": {
+    "build": "../node_modules/.bin/bunup && cp dist/index.js ../public/notch.js",
+    "dev": "../node_modules/.bin/bunup --watch"
+  }
 }

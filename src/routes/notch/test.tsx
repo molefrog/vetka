@@ -9,6 +9,7 @@ function NotchTestPage() {
   useEffect(() => {
     const script = document.createElement('script')
     script.src = `/notch.js?t=${Date.now()}`
+    script.type = 'module'
     document.body.appendChild(script)
     return () => {
       document.body.removeChild(script)

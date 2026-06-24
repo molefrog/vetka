@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react'
-import { motion, AnimatePresence } from 'motion/react'
 
 export function Widget() {
   const [open, setOpen] = useState(false)
@@ -56,54 +55,54 @@ export function Widget() {
         fontFamily: 'system-ui, -apple-system, sans-serif',
       }}
     >
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: 8, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.95 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
-            style={{ position: 'absolute', bottom: 'calc(100% + 10px)', right: 0, width: 220 }}
-            className="notch:bg-zinc-900 notch:rounded-2xl notch:border notch:border-white/10 notch:p-4 notch:shadow-2xl"
-          >
-            <p className="notch:text-[10px] notch:font-medium notch:uppercase notch:tracking-widest notch:text-white/30 notch:mb-3">
-              Live Session
-            </p>
-            <div className="notch:grid notch:grid-cols-2 notch:gap-2">
-              {stats.map(({ label, value, wide }) => (
-                <div
-                  key={label}
-                  className={[
-                    'notch:bg-white/5 notch:rounded-xl notch:p-3',
-                    wide ? 'notch:col-span-2' : '',
-                  ].join(' ')}
-                >
-                  <div className="notch:text-white notch:text-xl notch:font-semibold notch:leading-none notch:tabular-nums">
-                    {value}
-                  </div>
-                  <div className="notch:text-white/40 notch:text-xs notch:mt-1">{label}</div>
-                </div>
-              ))}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 'calc(100% + 10px)',
+          right: 0,
+          width: 220,
+          opacity: open ? 1 : 0,
+          transform: open ? 'translateY(0) scale(1)' : 'translateY(8px) scale(0.95)',
+          transition: 'opacity 0.15s ease-out, transform 0.15s ease-out',
+          pointerEvents: open ? 'auto' : 'none',
+        }}
+        className="notch:bg-zinc-900 notch:rounded-2xl notch:border notch:border-white/10 notch:p-4 notch:shadow-2xl"
+      >
+        <p className="notch:text-[10px] notch:font-medium notch:uppercase notch:tracking-widest notch:text-white/30 notch:mb-3">
+          Live Session
+        </p>
+        <div className="notch:grid notch:grid-cols-2 notch:gap-2">
+          {stats.map(({ label, value, wide }) => (
+            <div
+              key={label}
+              className={[
+                'notch:bg-white/5 notch:rounded-xl notch:p-3',
+                wide ? 'notch:col-span-2' : '',
+              ].join(' ')}
+            >
+              <div className="notch:text-white notch:text-xl notch:font-semibold notch:leading-none notch:tabular-nums">
+                {value}
+              </div>
+              <div className="notch:text-white/40 notch:text-xs notch:mt-1">{label}</div>
             </div>
-            <div className="notch:mt-3 notch:pt-3 notch:border-t notch:border-white/10 notch:text-center notch:text-xs notch:text-white/20 notch:tracking-wide">
-              Notch
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          ))}
+        </div>
+        <div className="notch:mt-3 notch:pt-3 notch:border-t notch:border-white/10 notch:text-center notch:text-xs notch:text-white/20 notch:tracking-wide">
+          Notch
+        </div>
+      </div>
 
-      <motion.button
+      <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        whileHover={{ scale: 1.04 }}
-        whileTap={{ scale: 0.96 }}
         style={{ outline: 'none', border: 'none', background: 'none', padding: 0, cursor: 'pointer' }}
+        className="notch:transition-transform notch:duration-100 notch:hover:scale-105 notch:active:scale-95"
       >
         <div className="notch:flex notch:items-center notch:gap-2 notch:bg-zinc-900 notch:text-white notch:rounded-full notch:px-3.5 notch:py-2 notch:shadow-lg notch:border notch:border-white/10 notch:text-sm notch:font-medium notch:select-none">
           <span className="notch:size-2 notch:rounded-full notch:bg-emerald-400 notch:shrink-0 notch:animate-pulse" />
           Notch
         </div>
-      </motion.button>
+      </button>
     </div>
   )
 }

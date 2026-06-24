@@ -8,9 +8,11 @@
   "scripts": {
     "dev": "vite dev --port 3000 --host 127.0.0.1",
     "generate-routes": "tsr generate",
-    "build": "vite build",
+    "build": "bun run build:notch && vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "dev:notch": "bun run --cwd notch dev",
+    "build:notch": "bun run --cwd notch build"
   },
   "dependencies": {
     "@atcute/atproto": "^4.0.2",
@@ -31,6 +33,7 @@
     "drizzle-orm": "^0.45.2",
     "lucide-react": "^0.545.0",
     "motion": "^12.41.0",
+    "nitro": "^3.0.260610-beta",
     "postgres": "^3.4.9",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
