@@ -58,10 +58,13 @@ account           BetterAuth core (passwords, OAuth tokens)
 verification      BetterAuth core
 tangledIdentity   did(pk) · handle · userId → user · selectedRepo{Uri,Name,Knot}
 agentSession      userId(unique) → user · sessionId (Anthropic session ID)
+                    · sshPrivateKey · sshPublicKey · sshKeyFileId
 site              id · domain(unique) · userId → user · isTangled · did → tangledIdentity
                     · repo{Uri,Name,Knot} · status(draft|building|live|error) · buildLog
 follow            followerId → site · followeeId → site  (unique pair)
 message           fromId → site · toId → site · body · readAt
+reaction          pageUrl(indexed) · siteId → site · authorUserId → user
+                    · emoji · x · y (0–100% position) · body (optional comment)
 ```
 
 ## TanStack Start patterns
@@ -149,6 +152,50 @@ The widget runs on third-party sites and calls `vetka.sh/api/notch/*` with `cred
 - Schema changes: edit `src/db/schema.ts` → `bunx drizzle-kit push` (needs interactive TTY — run in terminal with `!`)
 - Nitro is excluded from dev (`vite.config.ts`) to avoid breaking TanStack's dev middleware
 - Same Aiven PostgreSQL instance used for dev and prod (hackathon)
+
+## Anthropic Managed Agents
+
+Docs: https://platform.claude.com/docs/en/managed-agents/overview
+
+We use a **single global agent** (not per-user) with **per-user sessions**. The agent holds the system prompt and tool config; the session is the live sandbox + conversation history for one user.
+
+Constants in `src/lib/agent.server.ts`:
+- `AGENT_ID = 'agent_019VzGQn8ggkHmQxrDrHcJjU'` — managed in the Anthropic console, currently version 5+
+- `ENV_ID = 'env_016Mr6pEcERwBFoo1Jmzv8Yu'` — the cloud sandbox environment (Linux container)
+
+To update the system prompt, edit and re-run `scripts/update-agent.mjs` — it retrieves the current agent version (required for optimistic locking) then calls `client.beta.agents.update()`.
+
+### Per-user session flow
+
+1. `GET /api/agent/session` — calls `getOrCreateSession(userId)`, which looks up `agentSession` table or calls `client.beta.sessions.create({ agent: AGENT_ID, environment_id: ENV_ID })` and persists the new `sessionId`. Then loads history by calling `client.beta.sessions.events.list(sessionId)`, sorting events by `processed_at`, and reconstructing `ChatMessage[]`.
+2. `POST /api/agent/stream` — prepends a `<vetka_context>` block (repo URL, prod URL, git instructions) to the user message, sends it via `client.beta.sessions.events.send()`, then streams back SSE events until `session.status_idle`.
+
+### Event model (critical)
+
+Tool events are **separate stream events**, not embedded in `agent.message.content` (which only carries `TextBlock[]`):
+
+| SDK event | What it is |
+|---|---|
+| `agent.thinking` | Agent is reasoning |
+| `agent.message` | Text response blocks |
+| `agent.tool_use` | Built-in tool call |
+| `agent.mcp_tool_use` | MCP tool call (has `mcp_server_name`) |
+| `agent.custom_tool_use` | Custom tool call |
+| `agent.tool_result` | Result for `agent.tool_use` |
+| `agent.mcp_tool_result` | Result for `agent.mcp_tool_use` (key: `mcp_tool_use_id`) |
+| `session.status_idle` | Agent finished — stop streaming |
+
+### Context injection
+
+Each user message gets a `<vetka_context>` XML prefix with the user's repo URL and prod URL. When reconstructing history in `session.ts`, this prefix is stripped via regex before returning messages to the client.
+
+### MCP servers
+
+MCP servers must be **public HTTPS URLs** — the Anthropic platform calls them, not the agent sandbox. Configure via `mcp_servers: [{ type: 'url', name, url }]` in agent or session config.
+
+### Environments and pre-installed packages
+
+Environments support `packages.pip` / `packages.npm` / `packages.apt` to pre-install dependencies before the agent starts (cached across sessions). To add packages, create or update an environment via `client.beta.environments.create/update`. The current `ENV_ID` is the default cloud environment.
 
 ## One-off DB scripts
 

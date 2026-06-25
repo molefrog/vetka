@@ -18,8 +18,17 @@ export const Route = createFileRoute('/api/agent/stream')({
           return Response.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const { sessionId, message } = await request.json()
-        if (!sessionId || !message?.trim()) {
+        type ContentBlock =
+          | { type: 'text'; text: string }
+          | { type: 'image'; source: { type: 'file'; file_id: string } }
+          | { type: 'document'; source: { type: 'file'; file_id: string } }
+
+        const { sessionId, message, attachments } = await request.json() as {
+          sessionId: string
+          message: string
+          attachments?: Array<{ file_id: string; mime_type: string; name?: string }>
+        }
+        if (!sessionId || (!message?.trim() && !attachments?.length)) {
           return Response.json({ error: 'Missing sessionId or message' }, { status: 400 })
         }
 
@@ -36,21 +45,56 @@ export const Route = createFileRoute('/api/agent/stream')({
         let contextBlock = ''
         if (identity?.selectedRepoName && identity?.selectedRepoKnot) {
           const httpsUrl = `https://tangled.org/${identity.handle}/${identity.selectedRepoName}`
+          const sshUrl = `git@tangled.org:${identity.handle}/${identity.selectedRepoName}.git`
           const prodUrl = `https://${identity.handle}`
           contextBlock =
             `<vetka_context>\n` +
-            `repo: ${httpsUrl}\n` +
+            `repo_https: ${httpsUrl}\n` +
+            `repo_ssh: ${sshUrl}\n` +
             `prod: ${prodUrl}\n` +
-            `IMPORTANT: SSH port 22 is blocked. Use HTTPS for all git operations.\n` +
-            `Clone with: git clone ${httpsUrl}\n` +
-            `For push, ask the user for their Tangled app password, then:\n` +
-            `git remote set-url origin https://${identity.handle}:APP_PASSWORD@tangled.org/${identity.handle}/${identity.selectedRepoName}\n` +
+            `Clone: git clone ${httpsUrl}\n` +
+            `Push via SSH (key at ~/.ssh/id_vetka, copied there by setup.sh):\n` +
+            `  GIT_SSH_COMMAND='ssh -4 -i ~/.ssh/id_vetka -o StrictHostKeyChecking=no -o ConnectTimeout=15' git push\n` +
             `</vetka_context>\n`
         }
 
-        const fullMessage = contextBlock + message
+        const textContent = contextBlock + message
 
         const client = getAnthropicClient()
+
+        const content: Array<ContentBlock> = []
+        if (textContent.trim()) content.push({ type: 'text', text: textContent })
+
+        for (const att of attachments ?? []) {
+          const ext = att.mime_type.split('/')[1]?.replace('jpeg', 'jpg') ?? 'bin'
+          const filename = att.name || `file.${ext}`
+          // Use file_id as directory to avoid collisions on repeated sends in the same session
+          const mountPath = `/${att.file_id}/${filename}`
+
+          // Mount the file into the session sandbox so the agent can read/use it as a real file
+          const resource = await (client.beta.sessions as any).resources.add(sessionId, {
+            type: 'file',
+            file_id: att.file_id,
+            mount_path: mountPath,
+          })
+          // Use the path the API actually assigned, not what we requested
+          const actualPath: string = resource.mount_path ?? mountPath
+
+          if (att.mime_type.startsWith('image/')) {
+            content.push({
+              type: 'text',
+              text: `[Image "${filename}" is available in the sandbox at ${actualPath}]`,
+            })
+            content.push({ type: 'image', source: { type: 'file', file_id: att.file_id } })
+          } else {
+            content.push({
+              type: 'text',
+              text: `[File "${filename}" is available in the sandbox at ${actualPath}]`,
+            })
+            content.push({ type: 'document', source: { type: 'file', file_id: att.file_id } })
+          }
+        }
+
         const encoder = new TextEncoder()
 
         const body = new ReadableStream({
@@ -61,7 +105,7 @@ export const Route = createFileRoute('/api/agent/stream')({
 
             try {
               await client.beta.sessions.events.send(sessionId, {
-                events: [{ type: 'user.message', content: [{ type: 'text', text: fullMessage }] }],
+                events: [{ type: 'user.message', content: content as any }],
               })
 
               const stream = client.beta.sessions.events.stream(sessionId)

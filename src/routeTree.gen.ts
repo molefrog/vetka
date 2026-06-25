@@ -25,6 +25,7 @@ import { Route as ApiNotchFollowsRouteImport } from './routes/api/notch/follows'
 import { Route as ApiNotchFollowersRouteImport } from './routes/api/notch/followers'
 import { Route as ApiNotchConversationsRouteImport } from './routes/api/notch/conversations'
 import { Route as ApiNotchCheckRouteImport } from './routes/api/notch/check'
+import { Route as ApiAgentUploadRouteImport } from './routes/api/agent/upload'
 import { Route as ApiAgentStreamRouteImport } from './routes/api/agent/stream'
 import { Route as ApiAgentSessionRouteImport } from './routes/api/agent/session'
 import { Route as ApiNotchConversationsPeerIdRouteImport } from './routes/api/notch/conversations/$peerId'
@@ -110,6 +111,11 @@ const ApiNotchCheckRoute = ApiNotchCheckRouteImport.update({
   path: '/api/notch/check',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAgentUploadRoute = ApiAgentUploadRouteImport.update({
+  id: '/api/agent/upload',
+  path: '/api/agent/upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAgentStreamRoute = ApiAgentStreamRouteImport.update({
   id: '/api/agent/stream',
   path: '/api/agent/stream',
@@ -142,6 +148,7 @@ export interface FileRoutesByFullPath {
   '/sites/': typeof SitesIndexRoute
   '/api/agent/session': typeof ApiAgentSessionRoute
   '/api/agent/stream': typeof ApiAgentStreamRoute
+  '/api/agent/upload': typeof ApiAgentUploadRoute
   '/api/notch/check': typeof ApiNotchCheckRoute
   '/api/notch/conversations': typeof ApiNotchConversationsRouteWithChildren
   '/api/notch/followers': typeof ApiNotchFollowersRoute
@@ -164,6 +171,7 @@ export interface FileRoutesByTo {
   '/sites': typeof SitesIndexRoute
   '/api/agent/session': typeof ApiAgentSessionRoute
   '/api/agent/stream': typeof ApiAgentStreamRoute
+  '/api/agent/upload': typeof ApiAgentUploadRoute
   '/api/notch/check': typeof ApiNotchCheckRoute
   '/api/notch/conversations': typeof ApiNotchConversationsRouteWithChildren
   '/api/notch/followers': typeof ApiNotchFollowersRoute
@@ -187,6 +195,7 @@ export interface FileRoutesById {
   '/sites/': typeof SitesIndexRoute
   '/api/agent/session': typeof ApiAgentSessionRoute
   '/api/agent/stream': typeof ApiAgentStreamRoute
+  '/api/agent/upload': typeof ApiAgentUploadRoute
   '/api/notch/check': typeof ApiNotchCheckRoute
   '/api/notch/conversations': typeof ApiNotchConversationsRouteWithChildren
   '/api/notch/followers': typeof ApiNotchFollowersRoute
@@ -211,6 +220,7 @@ export interface FileRouteTypes {
     | '/sites/'
     | '/api/agent/session'
     | '/api/agent/stream'
+    | '/api/agent/upload'
     | '/api/notch/check'
     | '/api/notch/conversations'
     | '/api/notch/followers'
@@ -233,6 +243,7 @@ export interface FileRouteTypes {
     | '/sites'
     | '/api/agent/session'
     | '/api/agent/stream'
+    | '/api/agent/upload'
     | '/api/notch/check'
     | '/api/notch/conversations'
     | '/api/notch/followers'
@@ -255,6 +266,7 @@ export interface FileRouteTypes {
     | '/sites/'
     | '/api/agent/session'
     | '/api/agent/stream'
+    | '/api/agent/upload'
     | '/api/notch/check'
     | '/api/notch/conversations'
     | '/api/notch/followers'
@@ -278,6 +290,7 @@ export interface RootRouteChildren {
   SitesIndexRoute: typeof SitesIndexRoute
   ApiAgentSessionRoute: typeof ApiAgentSessionRoute
   ApiAgentStreamRoute: typeof ApiAgentStreamRoute
+  ApiAgentUploadRoute: typeof ApiAgentUploadRoute
   ApiNotchCheckRoute: typeof ApiNotchCheckRoute
   ApiNotchConversationsRoute: typeof ApiNotchConversationsRouteWithChildren
   ApiNotchFollowersRoute: typeof ApiNotchFollowersRoute
@@ -404,6 +417,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiNotchCheckRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/agent/upload': {
+      id: '/api/agent/upload'
+      path: '/api/agent/upload'
+      fullPath: '/api/agent/upload'
+      preLoaderRoute: typeof ApiAgentUploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/agent/stream': {
       id: '/api/agent/stream'
       path: '/api/agent/stream'
@@ -473,6 +493,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitesIndexRoute: SitesIndexRoute,
   ApiAgentSessionRoute: ApiAgentSessionRoute,
   ApiAgentStreamRoute: ApiAgentStreamRoute,
+  ApiAgentUploadRoute: ApiAgentUploadRoute,
   ApiNotchCheckRoute: ApiNotchCheckRoute,
   ApiNotchConversationsRoute: ApiNotchConversationsRouteWithChildren,
   ApiNotchFollowersRoute: ApiNotchFollowersRoute,

@@ -17,6 +17,7 @@ export const Route = createFileRoute('/sites/$domain/builder')({
 // ---------------------------------------------------------------------------
 
 type TextPart = { type: 'text'; text: string }
+type ImagePart = { type: 'image'; file_id: string; previewUrl?: string }
 type ToolPart = {
   type: 'tool'
   id: string
@@ -25,9 +26,11 @@ type ToolPart = {
   state: 'running' | 'done' | 'error'
   output?: string
 }
-type Part = TextPart | ToolPart
+type Part = TextPart | ImagePart | ToolPart
 
-type UserMessage = { role: 'user'; text: string }
+type Attachment = { file_id: string; mime_type: string; name: string; previewUrl?: string }
+
+type UserMessage = { role: 'user'; text: string; images?: ImagePart[] }
 type AssistantMessage = { role: 'assistant'; parts: Part[] }
 type ChatMessage = UserMessage | AssistantMessage
 
@@ -90,6 +93,7 @@ function Markdown({ content }: { content: string }) {
 // ---------------------------------------------------------------------------
 // Tool card
 // ---------------------------------------------------------------------------
+
 
 function ToolCard({ part, isLast }: { part: ToolPart; isLast: boolean }) {
   const [open, setOpen] = useState(false)
@@ -160,10 +164,17 @@ function ToolCard({ part, isLast }: { part: ToolPart; isLast: boolean }) {
 function MessageBubble({ msg }: { msg: ChatMessage }) {
   if (msg.role === 'user') {
     return (
-      <div className="flex justify-end">
-        <div className="bg-black text-white text-sm px-3 py-2 max-w-[85%] whitespace-pre-wrap">
-          {msg.text}
-        </div>
+      <div className="flex flex-col items-end gap-1.5">
+        {msg.images?.map((img, i) => (
+          img.previewUrl
+            ? <img key={i} src={img.previewUrl} alt="" className="max-w-[85%] max-h-48 border border-zinc-700 object-contain" />
+            : null
+        ))}
+        {msg.text && (
+          <div className="bg-black text-white text-sm px-3 py-2 max-w-[85%] whitespace-pre-wrap">
+            {msg.text}
+          </div>
+        )}
       </div>
     )
   }
@@ -227,7 +238,10 @@ function BuilderPage() {
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [thinking, setThinking] = useState(false)
+  const [attachments, setAttachments] = useState<Attachment[]>([])
+  const [uploading, setUploading] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetch(`/api/agent/session?domain=${encodeURIComponent(domain)}`)
@@ -242,13 +256,56 @@ function BuilderPage() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  async function uploadFile(file: File) {
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/agent/upload', { method: 'POST', body: fd })
+      if (!res.ok) return
+      const data = await res.json() as { file_id: string; mime_type: string; name: string }
+      const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined
+      setAttachments((prev) => [...prev, { ...data, previewUrl }])
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  function handlePaste(e: React.ClipboardEvent) {
+    const items = Array.from(e.clipboardData.items)
+    const imageItem = items.find((item) => item.type.startsWith('image/'))
+    if (!imageItem) return
+    e.preventDefault()
+    const file = imageItem.getAsFile()
+    if (file) uploadFile(new File([file], 'pasted-image.png', { type: file.type }))
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (file) uploadFile(file)
+    e.target.value = ''
+  }
+
+  function removeAttachment(file_id: string) {
+    setAttachments((prev) => {
+      const att = prev.find((a) => a.file_id === file_id)
+      if (att?.previewUrl) URL.revokeObjectURL(att.previewUrl)
+      return prev.filter((a) => a.file_id !== file_id)
+    })
+  }
+
   async function send() {
     const text = input.trim()
-    if (!text || !sessionId || streaming) return
+    if ((!text && !attachments.length) || !sessionId || streaming) return
     setInput('')
+    const pendingAttachments = attachments
+    setAttachments([])
     setThinking(true)
 
-    const userMsg: UserMessage = { role: 'user', text }
+    const images = pendingAttachments
+      .filter((a) => a.mime_type.startsWith('image/'))
+      .map((a) => ({ type: 'image' as const, file_id: a.file_id, previewUrl: a.previewUrl }))
+    const userMsg: UserMessage = { role: 'user', text, images: images.length ? images : undefined }
     const assistantMsg: AssistantMessage = { role: 'assistant', parts: [] }
     setMessages((m) => [...m, userMsg, assistantMsg])
     setStreaming(true)
@@ -257,7 +314,11 @@ function BuilderPage() {
       const res = await fetch('/api/agent/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, message: text }),
+        body: JSON.stringify({
+          sessionId,
+          message: text,
+          attachments: pendingAttachments.map(({ file_id, mime_type, name }) => ({ file_id, mime_type, name })),
+        }),
       })
       if (!res.ok || !res.body) throw new Error('Stream failed')
 
@@ -373,19 +434,65 @@ function BuilderPage() {
         </div>
 
         <div className="px-4 py-3 border-t border-zinc-200 shrink-0">
+          {attachments.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-2">
+              {attachments.map((att) => (
+                <div key={att.file_id} className="relative group">
+                  {att.previewUrl ? (
+                    <img src={att.previewUrl} alt={att.name} className="h-14 w-14 object-cover border border-zinc-200" />
+                  ) : (
+                    <div className="h-14 w-14 flex items-center justify-center border border-zinc-200 bg-zinc-50 text-xs text-zinc-500 font-mono text-center px-1 leading-tight">
+                      {att.name.split('.').pop()?.toUpperCase()}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeAttachment(att.file_id)}
+                    className="absolute -top-1 -right-1 size-4 bg-zinc-800 text-white text-xs rounded-full hidden group-hover:flex items-center justify-center leading-none"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              {uploading && (
+                <div className="h-14 w-14 flex items-center justify-center border border-zinc-200 bg-zinc-50">
+                  <span className="size-3 rounded-full bg-zinc-300 animate-pulse" />
+                </div>
+              )}
+            </div>
+          )}
           <form onSubmit={(e) => { e.preventDefault(); send() }} className="flex gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,application/pdf,text/plain"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={streaming || !sessionId || uploading}
+              title="Attach file"
+              className="self-end py-2 px-2 text-zinc-400 hover:text-zinc-700 disabled:opacity-40 transition-colors shrink-0"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M13.5 8.5l-5.5 5.5a4 4 0 01-5.657-5.657l6-6a2.5 2.5 0 013.535 3.535l-6.006 6.007a1 1 0 01-1.414-1.414l5.5-5.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-              placeholder="What should I change?"
+              onPaste={handlePaste}
+              placeholder="What should I change? Paste images with Ctrl+V"
               rows={2}
               disabled={streaming || !sessionId}
               className="flex-1 text-sm resize-none border border-zinc-200 px-3 py-2 outline-none focus:border-zinc-400 disabled:opacity-40 transition-colors"
             />
             <button
               type="submit"
-              disabled={!input.trim() || streaming || !sessionId}
+              disabled={(!input.trim() && !attachments.length) || streaming || !sessionId}
               className="px-3 text-sm font-medium bg-black text-white hover:bg-zinc-800 disabled:opacity-40 transition-colors self-end py-2"
             >
               Send
