@@ -10,6 +10,7 @@ import { NotchIcon, type IconName } from './NotchIcon'
 import { VetkaMark } from './VetkaMark'
 import { Avatar } from './Avatar'
 import { MessagesPanel } from './MessagesPanel'
+import { FollowsPanel } from './FollowsPanel'
 
 // Frost — dark glass (the recommended universal default, per local-drafts/README.md).
 const FROST = {
@@ -67,9 +68,10 @@ const MODES: Record<NotchMode, Slot[]> = {
     i('reactions', 'Reactions'),
     avatar(),
   ],
-  // 3. Logged in, someone else's site: follow, react, reactions, feed, messages, avatar.
+  // 3. Logged in, someone else's site: follow, follows, react, reactions, feed, messages, avatar.
   visitor: [
     i('follow', 'Follow'),
+    i('follows', 'Follows'),
     i('react', 'React'),
     i('reactions', 'Reactions'),
     i('feed', 'Updates'),
@@ -85,7 +87,7 @@ const BTN: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  borderRadius: 11,
+  borderRadius: 999,
   cursor: 'pointer',
   flex: '0 0 auto',
   transition: 'background .15s ease',
@@ -245,6 +247,9 @@ export function Widget({ apiBase, forceMode }: Props) {
       {openPanel === 'messages' && (
         <MessagesPanel mode={mode} owner={owner} onClose={closePanel} />
       )}
+      {openPanel === 'follows' && (
+        <FollowsPanel mode={mode} owner={owner} onClose={closePanel} />
+      )}
 
       {/* The shell: a logo circle when closed, a pill row when expanded. */}
       <div
@@ -311,17 +316,20 @@ export function Widget({ apiBase, forceMode }: Props) {
         >
           {slots.map((slot) => {
             const showTip = expanded && tip === slot.id
-            const isMessages = slot.kind === 'icon' && slot.key === 'messages'
+            // Icons that open a popup panel (keyed by the icon name).
+            const panelKey =
+              slot.kind === 'icon' && (slot.key === 'messages' || slot.key === 'follows')
+                ? slot.key
+                : null
             const isAvatar = slot.kind === 'avatar'
-            const active = isMessages && openPanel === 'messages'
+            const active = panelKey != null && openPanel === panelKey
             return (
               <button
                 key={slot.id}
                 type="button"
                 onClick={
-                  isMessages
-                    ? () =>
-                        setOpenPanel((p) => (p === 'messages' ? null : 'messages'))
+                  panelKey
+                    ? () => setOpenPanel((p) => (p === panelKey ? null : panelKey))
                     : isAvatar
                       ? () => window.open(`${apiBase}/`, '_blank', 'noopener')
                       : undefined
