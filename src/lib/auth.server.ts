@@ -98,7 +98,7 @@ export const auth = betterAuth({
       verification: schema.verification,
     },
   }),
-  emailAndPassword: { enabled: true },
+  emailAndPassword: { enabled: true, minPasswordLength: 6 },
   ...(process.env.GOOGLE_CLIENT_ID
     ? {
         socialProviders: {
