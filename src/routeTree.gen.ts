@@ -9,11 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SelectRepoRouteImport } from './routes/select-repo'
-import { Route as ReposRouteImport } from './routes/repos'
-import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CallbackRouteImport } from './routes/callback'
-import { Route as AgentRouteImport } from './routes/agent'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SitesIndexRouteImport } from './routes/sites/index'
 import { Route as SetupTangledRouteImport } from './routes/setup/tangled'
@@ -27,29 +23,9 @@ import { Route as ApiAgentStreamRouteImport } from './routes/api/agent/stream'
 import { Route as ApiAgentSessionRouteImport } from './routes/api/agent/session'
 import { Route as ApiAgentMessageRouteImport } from './routes/api/agent/message'
 
-const SelectRepoRoute = SelectRepoRouteImport.update({
-  id: '/select-repo',
-  path: '/select-repo',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ReposRoute = ReposRouteImport.update({
-  id: '/repos',
-  path: '/repos',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const CallbackRoute = CallbackRouteImport.update({
   id: '/callback',
   path: '/callback',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AgentRoute = AgentRouteImport.update({
-  id: '/agent',
-  path: '/agent',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -115,11 +91,7 @@ const ApiAgentMessageRoute = ApiAgentMessageRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/agent': typeof AgentRoute
   '/callback': typeof CallbackRoute
-  '/dashboard': typeof DashboardRoute
-  '/repos': typeof ReposRoute
-  '/select-repo': typeof SelectRepoRoute
   '/notch/test': typeof NotchTestRoute
   '/setup/script': typeof SetupScriptRoute
   '/setup/tangled': typeof SetupTangledRoute
@@ -134,11 +106,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/agent': typeof AgentRoute
   '/callback': typeof CallbackRoute
-  '/dashboard': typeof DashboardRoute
-  '/repos': typeof ReposRoute
-  '/select-repo': typeof SelectRepoRoute
   '/notch/test': typeof NotchTestRoute
   '/setup/script': typeof SetupScriptRoute
   '/setup/tangled': typeof SetupTangledRoute
@@ -154,11 +122,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/agent': typeof AgentRoute
   '/callback': typeof CallbackRoute
-  '/dashboard': typeof DashboardRoute
-  '/repos': typeof ReposRoute
-  '/select-repo': typeof SelectRepoRoute
   '/notch/test': typeof NotchTestRoute
   '/setup/script': typeof SetupScriptRoute
   '/setup/tangled': typeof SetupTangledRoute
@@ -175,11 +139,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/agent'
     | '/callback'
-    | '/dashboard'
-    | '/repos'
-    | '/select-repo'
     | '/notch/test'
     | '/setup/script'
     | '/setup/tangled'
@@ -194,11 +154,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/agent'
     | '/callback'
-    | '/dashboard'
-    | '/repos'
-    | '/select-repo'
     | '/notch/test'
     | '/setup/script'
     | '/setup/tangled'
@@ -213,11 +169,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/agent'
     | '/callback'
-    | '/dashboard'
-    | '/repos'
-    | '/select-repo'
     | '/notch/test'
     | '/setup/script'
     | '/setup/tangled'
@@ -233,11 +185,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AgentRoute: typeof AgentRoute
   CallbackRoute: typeof CallbackRoute
-  DashboardRoute: typeof DashboardRoute
-  ReposRoute: typeof ReposRoute
-  SelectRepoRoute: typeof SelectRepoRoute
   NotchTestRoute: typeof NotchTestRoute
   SetupScriptRoute: typeof SetupScriptRoute
   SetupTangledRoute: typeof SetupTangledRoute
@@ -253,39 +201,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/select-repo': {
-      id: '/select-repo'
-      path: '/select-repo'
-      fullPath: '/select-repo'
-      preLoaderRoute: typeof SelectRepoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/repos': {
-      id: '/repos'
-      path: '/repos'
-      fullPath: '/repos'
-      preLoaderRoute: typeof ReposRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/callback': {
       id: '/callback'
       path: '/callback'
       fullPath: '/callback'
       preLoaderRoute: typeof CallbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/agent': {
-      id: '/agent'
-      path: '/agent'
-      fullPath: '/agent'
-      preLoaderRoute: typeof AgentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -377,11 +297,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AgentRoute: AgentRoute,
   CallbackRoute: CallbackRoute,
-  DashboardRoute: DashboardRoute,
-  ReposRoute: ReposRoute,
-  SelectRepoRoute: SelectRepoRoute,
   NotchTestRoute: NotchTestRoute,
   SetupScriptRoute: SetupScriptRoute,
   SetupTangledRoute: SetupTangledRoute,

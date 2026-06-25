@@ -39,9 +39,10 @@ export async function listRepos(): Promise<Repo[]> {
   return (res.records ?? []).map((r: any) => {
     const v = r.value
     const knot = v.knot ?? 'tangled.sh'
+    const rkey = r.uri.split('/').at(-1) ?? ''
     return {
       uri: r.uri,
-      name: v.name,
+      name: v.name ?? rkey,
       knot,
       description: v.description,
       sshUrl: `git@${knot}:${did}/${v.name}.git`,
