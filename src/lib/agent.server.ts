@@ -20,6 +20,13 @@ export function getAnthropicClient() {
   return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 }
 
+export async function uploadSshKeyToFiles(privateKey: string): Promise<string> {
+  const client = getAnthropicClient()
+  const blob = new Blob([privateKey], { type: 'text/plain' })
+  const file = await client.beta.files.upload({ file: new File([blob], 'id_vetka', { type: 'text/plain' }) })
+  return file.id
+}
+
 // Encode a uint32 as 4 big-endian bytes (SSH wire format helper).
 function u32(n: number): Buffer {
   const b = Buffer.alloc(4)
@@ -98,28 +105,29 @@ export async function getOrCreateSession(userId: string): Promise<{
     .limit(1)
 
   if (existing.length > 0) {
-    return {
-      sessionId: existing[0].sessionId,
-      sshPublicKey: existing[0].sshPublicKey,
-    }
+    return { sessionId: existing[0].sessionId, sshPublicKey: existing[0].sshPublicKey }
+  }
+
+  // Get the SSH key from tangledIdentity — it's generated during /setup/tangled
+  const { tangledIdentity } = await import('../db/schema')
+  const [identity] = await db.select().from(tangledIdentity).where(eq(tangledIdentity.userId, userId)).limit(1)
+
+  let sshKeyFileId = identity?.sshKeyFileId ?? null
+  let sshPublicKey = identity?.sshPublicKey ?? null
+
+  // If the key isn't uploaded to Files API yet, do it now (shouldn't normally happen)
+  if (identity?.sshPrivateKey && !sshKeyFileId) {
+    sshKeyFileId = await uploadSshKeyToFiles(identity.sshPrivateKey)
+    await db.update(tangledIdentity).set({ sshKeyFileId, updatedAt: new Date() }).where(eq(tangledIdentity.userId, userId))
   }
 
   const client = getAnthropicClient()
 
-  // Generate SSH keypair for this user
-  const { privateKey, publicKey } = generateSSHKeyPair()
-
-  // Upload private key to Files API so we can mount it in the session sandbox
-  const privBlob = new Blob([privateKey], { type: 'text/plain' })
-  const privFile = await client.beta.files.upload({
-    file: new File([privBlob], 'id_vetka', { type: 'text/plain' }),
-  })
-
-  // Build resource list: SSH key + helper scripts (if uploaded)
   type FileResource = { type: 'file'; file_id: string; mount_path: string }
-  const resources: FileResource[] = [
-    { type: 'file', file_id: privFile.id, mount_path: '/root/.ssh/id_vetka' },
-  ]
+  const resources: FileResource[] = []
+  if (sshKeyFileId) {
+    resources.push({ type: 'file', file_id: sshKeyFileId, mount_path: '/root/.ssh/id_vetka' })
+  }
   if (HELPER_SETUP_FILE_ID) {
     resources.push({ type: 'file', file_id: HELPER_SETUP_FILE_ID, mount_path: '/workspace/scripts/setup.sh' })
   }
@@ -135,23 +143,11 @@ export async function getOrCreateSession(userId: string): Promise<{
 
   await db
     .insert(agentSession)
-    .values({
-      userId,
-      sessionId: session.id,
-      sshPrivateKey: privateKey,
-      sshPublicKey: publicKey,
-      sshKeyFileId: privFile.id,
-    })
+    .values({ userId, sessionId: session.id, sshPublicKey })
     .onConflictDoUpdate({
       target: agentSession.userId,
-      set: {
-        sessionId: session.id,
-        sshPrivateKey: privateKey,
-        sshPublicKey: publicKey,
-        sshKeyFileId: privFile.id,
-        updatedAt: new Date(),
-      },
+      set: { sessionId: session.id, sshPublicKey, updatedAt: new Date() },
     })
 
-  return { sessionId: session.id, sshPublicKey: publicKey }
+  return { sessionId: session.id, sshPublicKey }
 }

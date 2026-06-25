@@ -70,6 +70,9 @@ export const tangledIdentity = pgTable('tangled_identity', {
   selectedRepoUri: text('selected_repo_uri'),
   selectedRepoName: text('selected_repo_name'),
   selectedRepoKnot: text('selected_repo_knot'),
+  sshPrivateKey: text('ssh_private_key'),
+  sshPublicKey: text('ssh_public_key'),
+  sshKeyFileId: text('ssh_key_file_id'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })

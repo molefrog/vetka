@@ -4,16 +4,14 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
-import { agentSession, tangledIdentity } from '../db/schema'
+import { tangledIdentity } from '../db/schema'
 
 export async function pushBundle(
   bundleBytes: Buffer,
   userId: string,
 ): Promise<{ hash: string; url: string } | { error: string }> {
-  const [sess] = await db.select().from(agentSession).where(eq(agentSession.userId, userId)).limit(1)
-  if (!sess?.sshPrivateKey) return { error: 'No SSH key configured for this user' }
-
   const [identity] = await db.select().from(tangledIdentity).where(eq(tangledIdentity.userId, userId)).limit(1)
+  if (!identity?.sshPrivateKey) return { error: 'No SSH key configured — complete setup at /setup/tangled' }
   if (!identity?.selectedRepoName || !identity?.handle) return { error: 'No repo configured' }
 
   const sshUrl = `git@tangled.org:${identity.handle}/${identity.selectedRepoName}.git`
@@ -23,7 +21,7 @@ export async function pushBundle(
   const repoPath = join(tmpDir, 'repo')
 
   try {
-    writeFileSync(keyPath, sess.sshPrivateKey, { mode: 0o600 })
+    writeFileSync(keyPath, identity.sshPrivateKey!, { mode: 0o600 })
     writeFileSync(bundlePath, bundleBytes)
 
     const env = {
