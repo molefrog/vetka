@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { db } from '../../../db'
-import { site } from '../../../db/schema'
+import { follow, site } from '../../../db/schema'
 import { corsJson, corsOptions, getViewer, siteProfile } from '../../../lib/notch-social'
 
 // Resolve the host site the widget is embedded on (by domain) so the widget can
@@ -22,11 +22,29 @@ export const Route = createFileRoute('/api/notch/site')({
         const viewer = await getViewer(request)
         const owner = await siteProfile(host.id)
 
+        // Whether the viewer's site already follows this host (drives the
+        // notch Follow/Unfollow button's initial state).
+        let viewerFollowsOwner = false
+        if (viewer?.site && viewer.site.id !== host.id) {
+          const rows = await db
+            .select({ followeeId: follow.followeeId })
+            .from(follow)
+            .where(
+              and(
+                eq(follow.followerId, viewer.site.id),
+                eq(follow.followeeId, host.id),
+              ),
+            )
+            .limit(1)
+          viewerFollowsOwner = rows.length > 0
+        }
+
         return corsJson(request, {
           site: { id: host.id, domain: host.domain },
           owner,
           viewerIsOwner: viewer?.site?.id === host.id,
           viewerSiteId: viewer?.site?.id ?? null,
+          viewerFollowsOwner,
         })
       },
     },

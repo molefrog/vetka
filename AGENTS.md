@@ -153,6 +153,14 @@ The widget runs on third-party sites and calls `vetka.sh/api/notch/*` with `cred
 - Nitro is excluded from dev (`vite.config.ts`) to avoid breaking TanStack's dev middleware
 - Same Aiven PostgreSQL instance used for dev and prod (hackathon)
 
+## Design references
+
+- `design/reactions/` — reaction-sticker pack + treatment spec (the 8 Vetka Signals, `REACTIONS.md`,
+  browser preview). The reactions **overlay UI is specced but unbuilt**: backend is ready (`reaction`
+  table + `/api/notch/reactions`), but the `reactions` button in `notch/src/Widget.tsx` is an inert
+  stub (no onClick, no overlay/picker/stamp rendering). See `design/reactions/README.md`.
+- Other design handoffs live in the gitignored `local-drafts/` — not on GitHub.
+
 ## Anthropic Managed Agents
 
 Docs: https://platform.claude.com/docs/en/managed-agents/overview

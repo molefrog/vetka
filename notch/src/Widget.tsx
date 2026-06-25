@@ -11,6 +11,7 @@ import { VetkaMark } from './VetkaMark'
 import { Avatar } from './Avatar'
 import { MessagesPanel } from './MessagesPanel'
 import { FollowsPanel } from './FollowsPanel'
+import { setFollow } from './follows-data'
 
 // Frost — dark glass (the recommended universal default, per local-drafts/README.md).
 const FROST = {
@@ -46,6 +47,7 @@ interface SiteCtx {
   owner: { id: string; name: string; image: string | null; handle: string; seed: string } | null
   viewerIsOwner: boolean
   viewerSiteId: string | null
+  viewerFollowsOwner: boolean
 }
 
 interface Props {
@@ -164,6 +166,8 @@ export function Widget({ apiBase, forceMode }: Props) {
   const [user, setUser] = useState<User | null | undefined>(undefined)
   const [ctx, setCtx] = useState<SiteCtx | null>(null)
   const [openPanel, setOpenPanel] = useState<string | null>(null)
+  const [following, setFollowing] = useState(false)
+  const followPending = useRef(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -185,6 +189,11 @@ export function Widget({ apiBase, forceMode }: Props) {
       .then((d) => setCtx(d))
       .catch(() => setCtx(null))
   }, [apiBase])
+
+  // Seed the Follow button from the server-resolved relationship.
+  useEffect(() => {
+    setFollowing(!!ctx?.viewerFollowsOwner)
+  }, [ctx])
 
   const loggedIn = !!user
   const mode: NotchMode =
@@ -212,6 +221,18 @@ export function Widget({ apiBase, forceMode }: Props) {
   // Whose follows the Follows panel shows: the host owner's site when browsing
   // anonymously, the viewer's own site once signed in.
   const followsSubject = mode === 'anonymous' ? ctx?.site?.id ?? null : ctx?.viewerSiteId ?? null
+
+  // Subscribe to / unsubscribe from the owner of the page the notch sits on.
+  // Optimistic flip with revert on failure (mirrors FollowsPanel's rows).
+  const toggleFollow = async () => {
+    if (!owner.id || followPending.current) return
+    const next = !following
+    setFollowing(next)
+    followPending.current = true
+    const ok = await setFollow(apiBase, owner.id, next)
+    if (!ok) setFollowing(!next)
+    followPending.current = false
+  }
 
   const closePanel = () => {
     setOpenPanel(null)
@@ -361,7 +382,9 @@ export function Widget({ apiBase, forceMode }: Props) {
                 ? slot.key
                 : null
             const isAvatar = slot.kind === 'avatar'
-            const active = panelKey != null && openPanel === panelKey
+            const isFollow = slot.kind === 'icon' && slot.key === 'follow'
+            // The follow button reads as "on" while subscribed, like an open panel.
+            const active = (panelKey != null && openPanel === panelKey) || (isFollow && following)
             return (
               <button
                 key={slot.id}
@@ -369,9 +392,11 @@ export function Widget({ apiBase, forceMode }: Props) {
                 onClick={
                   panelKey
                     ? () => setOpenPanel((p) => (p === panelKey ? null : panelKey))
-                    : isAvatar
-                      ? () => window.open(`${apiBase}/`, '_blank', 'noopener')
-                      : undefined
+                    : isFollow
+                      ? toggleFollow
+                      : isAvatar
+                        ? () => window.open(`${apiBase}/`, '_blank', 'noopener')
+                        : undefined
                 }
                 style={{
                   ...BTN,
@@ -454,7 +479,7 @@ export function Widget({ apiBase, forceMode }: Props) {
                         fontWeight: 600,
                       }}
                     >
-                      {slot.label}
+                      {isFollow ? (following ? 'Unfollow' : 'Follow') : slot.label}
                     </Tip>
                   ))}
               </button>

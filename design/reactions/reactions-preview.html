@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vetka — Reaction Stickers</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Manrope', system-ui, sans-serif; background: #F5EFE6; color: #2C2018; padding: 40px; }
+  h1 { font-size: 24px; font-weight: 800; margin: 0 0 4px; }
+  .sub { font-size: 13.5px; color: #6B8C7D; margin: 0 0 28px; }
+  .mono { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
+  .surfaces { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 32px; }
+  .surf { flex: 1 1 280px; border-radius: 16px; padding: 22px; }
+  .surf.white { background: #fff; border: 1px solid #e9ddcf; }
+  .surf.photo { background: linear-gradient(150deg,#caa07a,#5b4636); }
+  .surf.dark  { background: #2C2018; }
+  .surf h2 { margin: 0 0 16px; color: #a99f92; }
+  .surf.photo h2, .surf.dark h2 { color: rgba(255,255,255,.7); }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; }
+  /* chip method (line signals) */
+  .sticker { width: 46px; height: 46px; background: #fff; border-radius: 13px; display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 9px rgba(40,35,25,.22); }
+  .sticker img { width: 60%; height: 60%; display: block; }
+  /* gallery cards */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); gap: 14px; }
+  .card { background: #fff; border: 1px solid #ecdfd0; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .card .sticker { width: 52px; height: 52px; }
+  .card .nm { font-size: 13px; font-weight: 700; }
+  .card .fl { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #a99f92; }
+</style>
+</head>
+<body>
+  <div class="mono" style="color:#a99f92;">Vetka</div>
+  <h1>Reaction stickers</h1>
+  <p class="sub">Eight signals · chip-method die-cut · slight tilt. Same treatment carries to normalized emoji.</p>
+
+  <div class="surfaces">
+    <div class="surf white"><h2 class="mono">On white</h2><div class="row" id="r-white"></div></div>
+    <div class="surf photo"><h2 class="mono">On a photo</h2><div class="row" id="r-photo"></div></div>
+    <div class="surf dark"><h2 class="mono">On dark</h2><div class="row" id="r-dark"></div></div>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+<script>
+const ITEMS = [
+  ['heart','Heart','Love this'], ['star','Star','A standout'], ['fire','Fire','This is great'],
+  ['wow','Wow','That surprised me'], ['like','Like','Agree'], ['idea','Idea','Insightful'],
+  ['save','Save','Keep for later'], ['question','Question','I have a question']
+];
+const tilts = [-9,7,-5,8,-7,5,-4,6];
+
+function chip(name, i) {
+  const d = document.createElement('div');
+  d.className = 'sticker';
+  d.style.transform = 'rotate(' + tilts[i % tilts.length] + 'deg)';
+  const img = document.createElement('img');
+  img.src = 'reactions/' + name + '.svg';
+  d.appendChild(img);
+  return d;
+}
+
+['white','photo','dark'].forEach(s => {
+  const row = document.getElementById('r-' + s);
+  ITEMS.forEach(([n], i) => row.appendChild(chip(n, i)));
+});
+
+const grid = document.getElementById('grid');
+ITEMS.forEach(([n, nm, mean], i) => {
+  const c = document.createElement('div');
+  c.className = 'card';
+  const sl = document.createElement('div'); sl.className = 'sticker'; sl.style.transform = 'rotate(' + tilts[i] + 'deg)';
+  const img = document.createElement('img'); img.src = 'reactions/' + n + '.svg'; img.style.width = '60%'; img.style.height = '60%';
+  sl.appendChild(img);
+  const nmEl = document.createElement('div'); nmEl.className = 'nm'; nmEl.textContent = nm;
+  const flEl = document.createElement('div'); flEl.className = 'fl'; flEl.textContent = n + '.svg';
+  c.append(sl, nmEl, flEl);
+  grid.appendChild(c);
+});
+</script>
+</body>
+</html>
