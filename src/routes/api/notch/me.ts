@@ -25,7 +25,13 @@ export const Route = createFileRoute('/api/notch/me')({
         const session = await auth.api.getSession({ headers: request.headers })
 
         const body = session?.user
-          ? { user: { name: session.user.name, email: session.user.email } }
+          ? {
+              user: {
+                name: session.user.name,
+                email: session.user.email,
+                image: session.user.image ?? null,
+              },
+            }
           : { user: null }
 
         return Response.json(body, { headers: corsHeaders(request) })

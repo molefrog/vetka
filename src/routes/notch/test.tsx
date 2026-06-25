@@ -16,8 +16,56 @@ function NotchTestPage() {
     }
   }, [])
 
+  const current =
+    typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('notch')
+      : null
+  const modes = [
+    { key: null, label: 'Auto' },
+    { key: 'anonymous', label: '1 · Anonymous' },
+    { key: 'owner', label: '2 · Owner' },
+    { key: 'visitor', label: '3 · Visitor' },
+  ] as const
+
   return (
     <div style={{ minHeight: '100vh', background: '#fff', color: '#111', fontFamily: "'Georgia', serif" }}>
+      {/* Dev-only notch state switcher (not part of the product) */}
+      <div
+        style={{
+          position: 'fixed',
+          top: 12,
+          left: 12,
+          zIndex: 2147483646,
+          display: 'flex',
+          gap: 6,
+          padding: 6,
+          background: 'rgba(20,20,26,.85)',
+          borderRadius: 10,
+          fontFamily: '-apple-system, sans-serif',
+        }}
+      >
+        {modes.map((m) => {
+          const active = (m.key ?? null) === (current ?? null)
+          return (
+            <a
+              key={m.label}
+              href={m.key ? `?notch=${m.key}` : '?'}
+              style={{
+                fontSize: 12,
+                padding: '5px 10px',
+                borderRadius: 6,
+                textDecoration: 'none',
+                color: active ? '#111' : '#fff',
+                background: active ? '#fff' : 'transparent',
+                fontWeight: active ? 700 : 500,
+              }}
+            >
+              {m.label}
+            </a>
+          )
+        })}
+      </div>
+
       <style>{`
         .notch-test-nav a { color: #111; text-decoration: none; font-size: 14px; }
         .notch-test-nav a:hover { text-decoration: underline; }
