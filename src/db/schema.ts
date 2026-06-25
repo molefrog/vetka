@@ -80,6 +80,9 @@ export const agentSession = pgTable('agent_session', {
     .references(() => user.id, { onDelete: 'cascade' })
     .unique(),
   sessionId: text('session_id').notNull().unique(),
+  sshPrivateKey: text('ssh_private_key'),
+  sshPublicKey: text('ssh_public_key'),
+  sshKeyFileId: text('ssh_key_file_id'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })

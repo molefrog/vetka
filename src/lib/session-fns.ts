@@ -147,5 +147,5 @@ export const getPostLoginDestination = createServerFn({ method: 'GET' }).handler
     .where(eq(tangledIdentity.userId, session.user.id))
     .limit(1)
 
-  return (tangled.length > 0 ? '/setup/tangled' : '/setup/script') as const
+  return tangled.length > 0 ? ('/setup/tangled' as const) : ('/setup/script' as const)
 })

@@ -10,20 +10,28 @@ export function getAnthropicClient() {
   return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 }
 
-export async function getOrCreateSession(userId: string): Promise<string> {
+export async function getOrCreateSession(userId: string): Promise<{
+  sessionId: string
+  sshPublicKey: string | null
+}> {
   const existing = await db
     .select()
     .from(agentSession)
     .where(eq(agentSession.userId, userId))
     .limit(1)
 
-  if (existing.length > 0) return existing[0].sessionId
+  if (existing.length > 0) {
+    return {
+      sessionId: existing[0].sessionId,
+      sshPublicKey: existing[0].sshPublicKey,
+    }
+  }
 
   const client = getAnthropicClient()
+
   const session = await client.beta.sessions.create({
     agent: AGENT_ID,
     environment_id: ENV_ID,
-    title: `Vetka agent for ${userId}`,
   })
 
   await db.insert(agentSession).values({
@@ -31,5 +39,5 @@ export async function getOrCreateSession(userId: string): Promise<string> {
     sessionId: session.id,
   })
 
-  return session.id
+  return { sessionId: session.id, sshPublicKey: null }
 }

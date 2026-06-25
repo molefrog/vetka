@@ -21,7 +21,6 @@ import { Route as ApiNotchMeRouteImport } from './routes/api/notch/me'
 import { Route as ApiNotchCheckRouteImport } from './routes/api/notch/check'
 import { Route as ApiAgentStreamRouteImport } from './routes/api/agent/stream'
 import { Route as ApiAgentSessionRouteImport } from './routes/api/agent/session'
-import { Route as ApiAgentMessageRouteImport } from './routes/api/agent/message'
 
 const CallbackRoute = CallbackRouteImport.update({
   id: '/callback',
@@ -83,11 +82,6 @@ const ApiAgentSessionRoute = ApiAgentSessionRouteImport.update({
   path: '/api/agent/session',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAgentMessageRoute = ApiAgentMessageRouteImport.update({
-  id: '/api/agent/message',
-  path: '/api/agent/message',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -96,7 +90,6 @@ export interface FileRoutesByFullPath {
   '/setup/script': typeof SetupScriptRoute
   '/setup/tangled': typeof SetupTangledRoute
   '/sites/': typeof SitesIndexRoute
-  '/api/agent/message': typeof ApiAgentMessageRoute
   '/api/agent/session': typeof ApiAgentSessionRoute
   '/api/agent/stream': typeof ApiAgentStreamRoute
   '/api/notch/check': typeof ApiNotchCheckRoute
@@ -111,7 +104,6 @@ export interface FileRoutesByTo {
   '/setup/script': typeof SetupScriptRoute
   '/setup/tangled': typeof SetupTangledRoute
   '/sites': typeof SitesIndexRoute
-  '/api/agent/message': typeof ApiAgentMessageRoute
   '/api/agent/session': typeof ApiAgentSessionRoute
   '/api/agent/stream': typeof ApiAgentStreamRoute
   '/api/notch/check': typeof ApiNotchCheckRoute
@@ -127,7 +119,6 @@ export interface FileRoutesById {
   '/setup/script': typeof SetupScriptRoute
   '/setup/tangled': typeof SetupTangledRoute
   '/sites/': typeof SitesIndexRoute
-  '/api/agent/message': typeof ApiAgentMessageRoute
   '/api/agent/session': typeof ApiAgentSessionRoute
   '/api/agent/stream': typeof ApiAgentStreamRoute
   '/api/notch/check': typeof ApiNotchCheckRoute
@@ -144,7 +135,6 @@ export interface FileRouteTypes {
     | '/setup/script'
     | '/setup/tangled'
     | '/sites/'
-    | '/api/agent/message'
     | '/api/agent/session'
     | '/api/agent/stream'
     | '/api/notch/check'
@@ -159,7 +149,6 @@ export interface FileRouteTypes {
     | '/setup/script'
     | '/setup/tangled'
     | '/sites'
-    | '/api/agent/message'
     | '/api/agent/session'
     | '/api/agent/stream'
     | '/api/notch/check'
@@ -174,7 +163,6 @@ export interface FileRouteTypes {
     | '/setup/script'
     | '/setup/tangled'
     | '/sites/'
-    | '/api/agent/message'
     | '/api/agent/session'
     | '/api/agent/stream'
     | '/api/notch/check'
@@ -190,7 +178,6 @@ export interface RootRouteChildren {
   SetupScriptRoute: typeof SetupScriptRoute
   SetupTangledRoute: typeof SetupTangledRoute
   SitesIndexRoute: typeof SitesIndexRoute
-  ApiAgentMessageRoute: typeof ApiAgentMessageRoute
   ApiAgentSessionRoute: typeof ApiAgentSessionRoute
   ApiAgentStreamRoute: typeof ApiAgentStreamRoute
   ApiNotchCheckRoute: typeof ApiNotchCheckRoute
@@ -285,13 +272,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAgentSessionRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/agent/message': {
-      id: '/api/agent/message'
-      path: '/api/agent/message'
-      fullPath: '/api/agent/message'
-      preLoaderRoute: typeof ApiAgentMessageRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
@@ -302,7 +282,6 @@ const rootRouteChildren: RootRouteChildren = {
   SetupScriptRoute: SetupScriptRoute,
   SetupTangledRoute: SetupTangledRoute,
   SitesIndexRoute: SitesIndexRoute,
-  ApiAgentMessageRoute: ApiAgentMessageRoute,
   ApiAgentSessionRoute: ApiAgentSessionRoute,
   ApiAgentStreamRoute: ApiAgentStreamRoute,
   ApiNotchCheckRoute: ApiNotchCheckRoute,
