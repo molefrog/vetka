@@ -5,14 +5,23 @@ import { Avatar } from './Avatar'
 // Both panels import from here so they stay visually consistent and can be
 // tweaked in one place.
 
+// Frost dark-glass — the same material as the notch bar (see FROST in Widget.tsx
+// and "Frost — dark glass" in local-drafts/README.md). The panel carries far more
+// text than the icon-only bar, so its tint is a touch deeper (.72 vs the bar's .42)
+// to keep white type legible over a white host page — same glass, more body.
 export const PANEL = {
-  surface: 'rgba(18,18,24,.92)',
-  border: '1px solid rgba(255,255,255,.12)',
-  shadow: '0 16px 48px rgba(0,0,0,.45)',
-  blur: 'blur(20px) saturate(160%)',
+  surface: 'rgba(18,18,24,.72)',
+  border: '1px solid rgba(255,255,255,.16)',
+  // Drop shadow grounds the floating glass; the inset top line is the bright
+  // rim highlight that reads as a glass edge catching light.
+  shadow: '0 16px 40px rgba(0,0,0,.36), inset 0 1px 0 rgba(255,255,255,.14)',
+  blur: 'blur(16px) saturate(170%)',
   ink: '#ffffff',
   muted: 'rgba(255,255,255,.5)',
-  rowHover: 'rgba(255,255,255,.06)',
+  rowHover: 'rgba(255,255,255,.08)',
+  // Small header buttons mirror the bar's button highlight exactly (.14); large
+  // full-width rows use a gentler wash so they don't glare.
+  btnHover: 'rgba(255,255,255,.14)',
   divider: 'rgba(255,255,255,.08)',
   accent: 'oklch(0.7 0.085 152)',
   onAccent: '#0c1f14',
@@ -30,7 +39,7 @@ export const panelContainerStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   overflow: 'hidden',
-  borderRadius: 18,
+  borderRadius: 22,
   background: PANEL.surface,
   border: PANEL.border,
   boxShadow: PANEL.shadow,
@@ -99,7 +108,7 @@ export function HeaderBtn({
         border: 'none',
         cursor: 'pointer',
         color: PANEL.ink,
-        background: hover ? PANEL.rowHover : 'transparent',
+        background: hover ? PANEL.btnHover : 'transparent',
         transition: 'background .15s ease',
         flex: '0 0 auto',
       }}
