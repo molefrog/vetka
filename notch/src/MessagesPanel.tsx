@@ -1,23 +1,17 @@
-import { useState, type CSSProperties } from 'react'
+import { useState } from 'react'
 import { Avatar } from './Avatar'
+import {
+  PANEL,
+  panelContainerStyle,
+  HeaderBtn,
+  PanelRow,
+  svg,
+  IconClose,
+  IconExpand,
+  IconBack,
+} from './panel-kit'
 import { CONVERSATIONS, unreadCount, type Conversation, type MockMessage } from './messages-data'
 import type { NotchMode } from './Widget'
-
-const PANEL = {
-  surface: 'rgba(18,18,24,.92)',
-  border: '1px solid rgba(255,255,255,.12)',
-  shadow: '0 16px 48px rgba(0,0,0,.45)',
-  blur: 'blur(20px) saturate(160%)',
-  ink: '#ffffff',
-  muted: 'rgba(255,255,255,.5)',
-  rowHover: 'rgba(255,255,255,.06)',
-  divider: 'rgba(255,255,255,.08)',
-  accent: 'oklch(0.7 0.085 152)',
-  onAccent: '#0c1f14',
-  unread: '#3b82f6',
-  badge: '#ef4444',
-  bubbleIn: 'rgba(255,255,255,.08)',
-}
 
 type Peer = { name: string; seed: string; src?: string }
 
@@ -27,33 +21,7 @@ interface Props {
   onClose: () => void
 }
 
-// --- tiny inline icons (1.6 stroke, round), panel-local -------------------
-const svg = (children: React.ReactNode): React.ReactNode => (
-  <svg
-    viewBox="0 0 24 24"
-    width={20}
-    height={20}
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={1.6}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    style={{ display: 'block' }}
-  >
-    {children}
-  </svg>
-)
-const IconClose = () => svg(<><path d="M6 6 L18 18" /><path d="M18 6 L6 18" /></>)
-const IconExpand = () =>
-  svg(
-    <>
-      <path d="M9 4 H4 V9" />
-      <path d="M15 4 H20 V9" />
-      <path d="M9 20 H4 V15" />
-      <path d="M15 20 H20 V15" />
-    </>,
-  )
-const IconBack = () => svg(<path d="M15 5 L8 12 L15 19" />)
+// --- message-specific inline icons (1.6 stroke, round) --------------------
 const IconCompose = () =>
   svg(
     <>
@@ -62,66 +30,6 @@ const IconCompose = () =>
     </>,
   )
 const IconSend = () => svg(<><path d="M5 12 H18" /><path d="M12 6 L18 12 L12 18" /></>)
-
-// --- header icon button ----------------------------------------------------
-function HeaderBtn({
-  children,
-  onClick,
-  title,
-}: {
-  children: React.ReactNode
-  onClick?: () => void
-  title?: string
-}) {
-  const [hover, setHover] = useState(false)
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={title}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        width: 34,
-        height: 34,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: 9,
-        border: 'none',
-        cursor: 'pointer',
-        color: PANEL.ink,
-        background: hover ? PANEL.rowHover : 'transparent',
-        transition: 'background .15s ease',
-        flex: '0 0 auto',
-      }}
-    >
-      {children}
-    </button>
-  )
-}
-
-const containerStyle: CSSProperties = {
-  position: 'absolute',
-  bottom: 'calc(100% + 12px)',
-  right: 0,
-  width: 380,
-  maxHeight: 'min(560px, 70vh)',
-  display: 'flex',
-  flexDirection: 'column',
-  overflow: 'hidden',
-  borderRadius: 18,
-  background: PANEL.surface,
-  border: PANEL.border,
-  boxShadow: PANEL.shadow,
-  backdropFilter: PANEL.blur,
-  WebkitBackdropFilter: PANEL.blur,
-  color: PANEL.ink,
-  fontFamily: "'Manrope', system-ui, -apple-system, sans-serif",
-  animation: 'notch-panel-in .16s ease-out',
-  transformOrigin: 'bottom right',
-  zIndex: 10,
-}
 
 export function MessagesPanel({ mode, owner, onClose }: Props) {
   const [view, setView] = useState<'list' | 'thread'>('list')
@@ -149,7 +57,7 @@ export function MessagesPanel({ mode, owner, onClose }: Props) {
   const badge = unreadCount(CONVERSATIONS)
 
   return (
-    <div style={containerStyle} onMouseDown={(e) => e.stopPropagation()}>
+    <div style={panelContainerStyle} onMouseDown={(e) => e.stopPropagation()}>
       {view === 'list' ? (
         <>
           {/* Header */}
@@ -209,12 +117,12 @@ export function MessagesPanel({ mode, owner, onClose }: Props) {
                 >
                   Suggested
                 </div>
-                <Row
+                <PanelRow
                   name={owner.name}
                   seed={owner.seed}
                   src={owner.src}
-                  preview="Start a conversation"
-                  highlight
+                  subtitle="Start a conversation"
+                  subtitleColor={PANEL.accent}
                   onClick={openOwner}
                 />
                 <div
@@ -223,17 +131,40 @@ export function MessagesPanel({ mode, owner, onClose }: Props) {
               </>
             )}
 
-            {CONVERSATIONS.map((c) => (
-              <Row
-                key={c.id}
-                name={c.name}
-                seed={c.seed}
-                preview={c.status ?? c.preview}
-                time={c.status ? '' : c.time}
-                unread={c.unread}
-                onClick={() => openConversation(c)}
-              />
-            ))}
+            {CONVERSATIONS.map((c) => {
+              const time = c.status ? '' : c.time
+              return (
+                <PanelRow
+                  key={c.id}
+                  name={c.name}
+                  seed={c.seed}
+                  strong={c.unread}
+                  subtitleColor={c.unread ? PANEL.ink : PANEL.muted}
+                  subtitle={
+                    <>
+                      {c.status ?? c.preview}
+                      {time ? (
+                        <span style={{ color: PANEL.muted, fontWeight: 400 }}> · {time}</span>
+                      ) : null}
+                    </>
+                  }
+                  trailing={
+                    c.unread ? (
+                      <span
+                        style={{
+                          width: 9,
+                          height: 9,
+                          borderRadius: 999,
+                          background: PANEL.unread,
+                          display: 'block',
+                        }}
+                      />
+                    ) : null
+                  }
+                  onClick={() => openConversation(c)}
+                />
+              )
+            })}
           </div>
 
           {/* Compose FAB */}
@@ -251,90 +182,6 @@ export function MessagesPanel({ mode, owner, onClose }: Props) {
         />
       )}
     </div>
-  )
-}
-
-// --- a single conversation row --------------------------------------------
-function Row({
-  name,
-  seed,
-  src,
-  preview,
-  time,
-  unread,
-  highlight,
-  onClick,
-}: {
-  name: string
-  seed: string
-  src?: string
-  preview: string
-  time?: string
-  unread?: boolean
-  highlight?: boolean
-  onClick?: () => void
-}) {
-  const [hover, setHover] = useState(false)
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        width: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        padding: '8px 18px',
-        border: 'none',
-        cursor: 'pointer',
-        textAlign: 'left',
-        background: hover ? PANEL.rowHover : 'transparent',
-        transition: 'background .12s ease',
-        color: PANEL.ink,
-      }}
-    >
-      <Avatar src={src} seed={seed} size={52} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div
-          style={{
-            fontSize: 15,
-            fontWeight: unread ? 700 : 600,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          {name}
-        </div>
-        <div
-          style={{
-            fontSize: 13.5,
-            marginTop: 2,
-            color: highlight ? PANEL.accent : unread ? PANEL.ink : PANEL.muted,
-            fontWeight: unread ? 600 : 400,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          {preview}
-          {time ? <span style={{ color: PANEL.muted, fontWeight: 400 }}> · {time}</span> : null}
-        </div>
-      </div>
-      {unread && (
-        <span
-          style={{
-            width: 9,
-            height: 9,
-            borderRadius: 999,
-            background: PANEL.unread,
-            flex: '0 0 auto',
-          }}
-        />
-      )}
-    </button>
   )
 }
 
