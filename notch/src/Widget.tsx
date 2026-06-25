@@ -443,7 +443,7 @@ export function Widget({ apiBase, forceMode, forceDomain }: Props) {
               signal: pickedSignal,
               x,
               y,
-              authorName: user.name,
+              authorName: user.domain ?? user.handle ?? user.name,
               authorSeed: user.email,
             })
             setReactMode(false)
