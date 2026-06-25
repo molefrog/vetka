@@ -91,7 +91,7 @@ export const auth = betterAuth({
   // Only skip it for plain http localhost where Secure cookies don't work.
   advanced: isLocalDev
     ? { disableCSRFCheck: true }
-    : { cookieOptions: { sameSite: 'none', secure: true } },
+    : { defaultCookieAttributes: { sameSite: 'none', secure: true } },
   database: drizzleAdapter(db, {
     provider: 'pg',
     schema: {
