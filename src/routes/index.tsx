@@ -36,6 +36,28 @@ const NOTIFICATIONS = [
 const NEW_MEMBERS = ['cat.io', 'evan.xyz', 'igor.me', 'lena.io', 'petya.site']
 
 // ---------------------------------------------------------------------------
+// Shared bits — soft, Notch-flavoured list primitives
+// ---------------------------------------------------------------------------
+
+// Small-caps section header in the Anthony display face (used outside the notch bar).
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="px-5 h-10 flex items-center font-display text-[12px] uppercase tracking-[0.12em] text-zinc-500 border-b border-black/[0.08]">
+      {children}
+    </div>
+  )
+}
+
+// Circular monochrome avatar — first letter of the label, Notch row pattern.
+function Avatar({ label }: { label: string }) {
+  return (
+    <span className="w-7 h-7 rounded-full bg-black/5 text-zinc-500 text-xs font-medium flex items-center justify-center shrink-0">
+      {label[0]?.toUpperCase()}
+    </span>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 
@@ -81,7 +103,7 @@ function HomePage() {
   return (
     <div className="min-h-screen bg-white text-black text-sm">
       {/* Navbar */}
-      <nav className="border-b border-black px-4 h-16 flex items-center shrink-0">
+      <nav className="border-b border-black/[0.08] px-5 h-16 flex items-center shrink-0">
         <span className="font-display flex items-center gap-2 text-[40px] leading-none">
           <VetkaLogo variant="lean" size={40} />
           Vetka
@@ -96,22 +118,22 @@ function HomePage() {
               <div ref={menuRef} className="relative">
                 <button
                   onClick={() => setMenuOpen((o) => !o)}
-                  className="w-6 h-6 border border-black flex items-center justify-center text-xs hover:bg-zinc-50"
+                  className="w-8 h-8 rounded-full bg-black/5 text-zinc-600 flex items-center justify-center text-xs font-medium hover:bg-black/10 transition-colors"
                 >
                   {initial}
                 </button>
                 {menuOpen && (
-                  <div className="absolute right-0 top-full mt-px w-40 border border-black bg-white z-50">
+                  <div className="anim-tip-in absolute right-0 top-full mt-2 w-44 rounded-[14px] border border-black/[0.08] bg-white/80 backdrop-blur-xl shadow-[0_16px_40px_rgba(0,0,0,0.12)] overflow-hidden p-1 z-50">
                     <a
                       href="/sites"
-                      className="block px-3 py-2 hover:bg-zinc-50 border-b border-black"
+                      className="block px-3 py-2 rounded-[9px] hover:bg-black/[0.04]"
                       onClick={() => setMenuOpen(false)}
                     >
                       Edit site →
                     </a>
                     <a
                       href="/sites"
-                      className="block px-3 py-2 hover:bg-zinc-50 border-b border-black"
+                      className="block px-3 py-2 rounded-[9px] hover:bg-black/[0.04]"
                       onClick={() => setMenuOpen(false)}
                     >
                       My sites
@@ -122,7 +144,7 @@ function HomePage() {
                         await signOut()
                         window.location.reload()
                       }}
-                      className="w-full text-left px-3 py-2 hover:bg-zinc-50 text-zinc-500"
+                      className="w-full text-left px-3 py-2 rounded-[9px] hover:bg-black/[0.04] text-zinc-500"
                     >
                       Log out
                     </button>
@@ -143,46 +165,50 @@ function HomePage() {
 
       <div className="flex" style={{ minHeight: 'calc(100vh - 65px)' }}>
         {/* Feed */}
-        <main className="flex-1 border-r border-black">
-          <div className="border-b border-black px-4 h-8 flex items-center text-xs text-zinc-500">
-            Global feed
+        <main className="flex-1 border-r border-black/[0.08]">
+          <SectionLabel>Global feed</SectionLabel>
+          <div className="px-2 py-1.5">
+            {FEED.map((item, i) => (
+              <div
+                key={i}
+                className="px-3 py-2 rounded-xl flex items-center gap-3 hover:bg-black/[0.04] cursor-default transition-colors"
+              >
+                <Avatar label={item.domain} />
+                <span className="text-[15px] font-semibold leading-tight">{item.domain}</span>
+                <span className="text-[13.5px] text-zinc-500 leading-tight">{item.action}</span>
+                <span className="ml-auto text-xs text-zinc-400 shrink-0">{item.time}</span>
+              </div>
+            ))}
           </div>
-          {FEED.map((item, i) => (
-            <div
-              key={i}
-              className="border-b border-black px-4 py-2.5 flex items-baseline gap-2 hover:bg-zinc-50 cursor-default"
-            >
-              <span className="font-medium">{item.domain}</span>
-              <span className="text-zinc-500">— {item.action}</span>
-              <span className="ml-auto text-xs text-zinc-400 shrink-0">{item.time}</span>
-            </div>
-          ))}
         </main>
 
         {/* Right sidebar */}
-        <aside className="w-64 shrink-0">
+        <aside className="w-72 shrink-0">
           {user && (
             <>
-              <div className="border-b border-black px-4 h-8 flex items-center text-xs text-zinc-500">
-                Notifications
+              <SectionLabel>Notifications</SectionLabel>
+              <div className="px-2 py-1.5">
+                {NOTIFICATIONS.map((n, i) => (
+                  <div key={i} className="px-3 py-2 rounded-xl hover:bg-black/[0.04] transition-colors">
+                    <div className="text-[13.5px] leading-snug">{n.text}</div>
+                    <div className="text-xs text-zinc-400 mt-0.5">{n.time}</div>
+                  </div>
+                ))}
               </div>
-              {NOTIFICATIONS.map((n, i) => (
-                <div key={i} className="border-b border-black px-4 py-2.5">
-                  <div>{n.text}</div>
-                  <div className="text-xs text-zinc-400 mt-0.5">{n.time}</div>
-                </div>
-              ))}
-              <div className="h-4" />
             </>
           )}
-          <div className="border-b border-black px-4 h-8 flex items-center text-xs text-zinc-500">
-            New members
+          <SectionLabel>New members</SectionLabel>
+          <div className="px-2 py-1.5">
+            {NEW_MEMBERS.map((domain, i) => (
+              <div
+                key={i}
+                className="px-3 py-2 rounded-xl flex items-center gap-3 hover:bg-black/[0.04] cursor-default transition-colors"
+              >
+                <Avatar label={domain} />
+                <span className="text-[15px] font-semibold leading-tight">{domain}</span>
+              </div>
+            ))}
           </div>
-          {NEW_MEMBERS.map((domain, i) => (
-            <div key={i} className="border-b border-black px-4 py-2.5">
-              {domain}
-            </div>
-          ))}
         </aside>
       </div>
 
@@ -268,31 +294,34 @@ function LoginModal({
     }
   }
 
+  const inputCls =
+    'w-full px-4 py-2 text-sm rounded-full bg-black/[0.04] border border-transparent outline-none focus:bg-white focus:border-black/[0.12] transition-colors placeholder:text-zinc-400'
+
   return (
     <div
-      className="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
+      className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white border border-black w-full max-w-xs"
+        className="anim-panel-in bg-white rounded-[22px] border border-black/[0.08] shadow-[0_16px_40px_rgba(0,0,0,0.12)] overflow-hidden w-full max-w-xs"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Tabs */}
-        <div className="border-b border-black flex">
-          {(['login', 'signup'] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => { setTab(t); setError(null) }}
-              className={`flex-1 h-9 text-sm border-r last:border-r-0 border-black ${
-                tab === t ? 'bg-black text-white' : 'hover:bg-zinc-50'
-              }`}
-            >
-              {t === 'login' ? 'Log in' : 'Sign up'}
-            </button>
-          ))}
-        </div>
+        <div className="p-5 space-y-4">
+          {/* Tabs — segmented pill */}
+          <div className="flex p-1 rounded-full bg-black/5">
+            {(['login', 'signup'] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => { setTab(t); setError(null) }}
+                className={`flex-1 h-8 text-sm rounded-full transition-colors ${
+                  tab === t ? 'bg-black text-white' : 'text-zinc-500 hover:text-black'
+                }`}
+              >
+                {t === 'login' ? 'Log in' : 'Sign up'}
+              </button>
+            ))}
+          </div>
 
-        <div className="p-4 space-y-3">
           <form onSubmit={handleEmailSubmit} className="space-y-2">
             {tab === 'signup' && (
               <input
@@ -301,7 +330,7 @@ function LoginModal({
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Name"
                 required
-                className="w-full px-2 py-1.5 text-sm border border-black outline-none focus:bg-zinc-50"
+                className={inputCls}
               />
             )}
             <input
@@ -311,7 +340,7 @@ function LoginModal({
               placeholder="Email"
               required
               autoComplete="email"
-              className="w-full px-2 py-1.5 text-sm border border-black outline-none focus:bg-zinc-50"
+              className={inputCls}
             />
             <input
               type="password"
@@ -320,19 +349,19 @@ function LoginModal({
               placeholder="Password"
               required
               autoComplete={tab === 'signup' ? 'new-password' : 'current-password'}
-              className="w-full px-2 py-1.5 text-sm border border-black outline-none focus:bg-zinc-50"
+              className={inputCls}
             />
-            {error && <p className="text-xs text-red-600">{error}</p>}
+            {error && <p className="text-xs text-red-600 px-1">{error}</p>}
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-1.5 text-sm bg-black text-white hover:bg-zinc-800 disabled:opacity-40"
+              className="w-full py-2 text-sm rounded-full bg-black text-white hover:bg-zinc-800 disabled:opacity-40 transition-colors"
             >
               {loading ? '…' : tab === 'login' ? 'Log in' : 'Create account'}
             </button>
           </form>
 
-          <div className="border-t border-black pt-3">
+          <div className="border-t border-black/[0.06] pt-4">
             <form onSubmit={handleTangledSignIn} className="space-y-2">
               <input
                 type="text"
@@ -341,12 +370,12 @@ function LoginModal({
                 placeholder="handle.tngl.sh"
                 autoCapitalize="none"
                 autoComplete="off"
-                className="w-full px-2 py-1.5 text-sm border border-black outline-none focus:bg-zinc-50"
+                className={inputCls}
               />
               <button
                 type="submit"
                 disabled={!handle.trim() || loading}
-                className="w-full py-1.5 text-sm border border-black hover:bg-zinc-50 disabled:opacity-40"
+                className="w-full py-2 text-sm rounded-full border border-black/[0.12] hover:bg-black/[0.04] disabled:opacity-40 transition-colors"
               >
                 Continue with Tangled
               </button>
