@@ -169,17 +169,19 @@ export function Widget({ apiBase, forceMode }: Props) {
   const [following, setFollowing] = useState(false)
   const followPending = useRef(false)
   const rootRef = useRef<HTMLDivElement>(null)
+  // The login tab opened on the vetka origin (kept so we can close it on success).
+  const loginPopup = useRef<Window | null>(null)
 
-  useEffect(() => {
+  const loadUser = () =>
     fetch(`${apiBase}/api/notch/me`, { credentials: 'include' })
       .then((r) => r.json())
       .then((d) => setUser(d.user ?? null))
       .catch(() => setUser(null))
-  }, [apiBase])
 
   // Resolve the host site so we can tell owner from visitor and surface the
-  // owner's real identity for the "message the owner" suggestion.
-  useEffect(() => {
+  // owner's real identity for the "message the owner" suggestion. Re-runs after
+  // login because viewerIsOwner / viewerFollowsOwner depend on the session.
+  const loadCtx = () => {
     const host = typeof window !== 'undefined' ? window.location.hostname : ''
     if (!host) return
     fetch(`${apiBase}/api/notch/site?domain=${encodeURIComponent(host)}`, {
@@ -188,6 +190,56 @@ export function Widget({ apiBase, forceMode }: Props) {
       .then((r) => r.json())
       .then((d) => setCtx(d))
       .catch(() => setCtx(null))
+  }
+
+  useEffect(() => {
+    loadUser()
+    loadCtx()
+  }, [apiBase])
+
+  // Log in by handing off to the vetka home page (the widget runs cross-origin on
+  // third-party sites and can't host the auth UI / OAuth redirects). The home page
+  // posts back `vetka:login` on success; we then refresh session-derived state and
+  // close the tab so focus returns here.
+  const startLogin = () => {
+    loginPopup.current = window.open(
+      `${apiBase}/?notch_login=1`,
+      'vetka-login',
+      'width=460,height=680',
+    )
+  }
+
+  useEffect(() => {
+    let vetkaOrigin = ''
+    try {
+      vetkaOrigin = new URL(apiBase).origin
+    } catch {}
+    const onMessage = (e: MessageEvent) => {
+      if (vetkaOrigin && e.origin !== vetkaOrigin) return
+      if (e.data !== 'vetka:login') return
+      loginPopup.current?.close()
+      loginPopup.current = null
+      loadUser()
+      loadCtx()
+      try {
+        window.focus()
+      } catch {}
+    }
+    // Fallback for paths that can't post back (e.g. the Tangled OAuth redirect
+    // navigates the tab away): re-check the session whenever we regain focus
+    // while a login tab is/was open.
+    const onFocus = () => {
+      if (!loginPopup.current) return
+      loadUser()
+      loadCtx()
+      if (loginPopup.current.closed) loginPopup.current = null
+    }
+    window.addEventListener('message', onMessage)
+    window.addEventListener('focus', onFocus)
+    return () => {
+      window.removeEventListener('message', onMessage)
+      window.removeEventListener('focus', onFocus)
+    }
   }, [apiBase])
 
   // Seed the Follow button from the server-resolved relationship.
@@ -383,6 +435,7 @@ export function Widget({ apiBase, forceMode }: Props) {
                 : null
             const isAvatar = slot.kind === 'avatar'
             const isFollow = slot.kind === 'icon' && slot.key === 'follow'
+            const isLogin = slot.kind === 'icon' && slot.key === 'login'
             // The follow button reads as "on" while subscribed, like an open panel.
             const active = (panelKey != null && openPanel === panelKey) || (isFollow && following)
             return (
@@ -394,9 +447,11 @@ export function Widget({ apiBase, forceMode }: Props) {
                     ? () => setOpenPanel((p) => (p === panelKey ? null : panelKey))
                     : isFollow
                       ? toggleFollow
-                      : isAvatar
-                        ? () => window.open(`${apiBase}/`, '_blank', 'noopener')
-                        : undefined
+                      : isLogin
+                        ? startLogin
+                        : isAvatar
+                          ? () => window.open(`${apiBase}/`, '_blank', 'noopener')
+                          : undefined
                 }
                 style={{
                   ...BTN,

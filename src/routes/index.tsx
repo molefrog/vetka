@@ -43,10 +43,31 @@ function HomePage() {
   const { data: session } = useSession()
   const [showLogin, setShowLogin] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  // True when this tab was opened by the Notch widget purely to log in. In that
+  // mode a successful login posts back to the widget and closes the tab instead
+  // of routing into onboarding (the visitor may not own a site).
+  const [notchLogin, setNotchLogin] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   const user = session?.user
   const initial = user?.name?.[0]?.toUpperCase() ?? user?.email?.[0]?.toUpperCase()
+
+  // Set in an effect (not render) to avoid an SSR/client hydration mismatch.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has('notch_login')) {
+      setNotchLogin(true)
+      setShowLogin(true)
+    }
+  }, [])
+
+  // Already authenticated when the widget hands off (or just became so): notify
+  // the opener and close this tab so focus returns to the user's site.
+  useEffect(() => {
+    if (notchLogin && session?.user) {
+      window.opener?.postMessage('vetka:login', '*')
+      window.close()
+    }
+  }, [notchLogin, session])
 
   useEffect(() => {
     if (!menuOpen) return
@@ -165,7 +186,9 @@ function HomePage() {
         </aside>
       </div>
 
-      {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
+      {showLogin && (
+        <LoginModal notchLogin={notchLogin} onClose={() => setShowLogin(false)} />
+      )}
     </div>
   )
 }
@@ -174,7 +197,13 @@ function HomePage() {
 // Login modal
 // ---------------------------------------------------------------------------
 
-function LoginModal({ onClose }: { onClose: () => void }) {
+function LoginModal({
+  notchLogin = false,
+  onClose,
+}: {
+  notchLogin?: boolean
+  onClose: () => void
+}) {
   const router = useRouter()
   const { data: session } = useSession()
   const [tab, setTab] = useState<'login' | 'signup'>('login')
@@ -201,6 +230,12 @@ function LoginModal({ onClose }: { onClose: () => void }) {
       } else {
         const res = await signIn.email({ email, password })
         if (res.error) throw new Error(res.error.message)
+      }
+      // Notch hand-off: signal the widget and close, skipping onboarding.
+      if (notchLogin) {
+        window.opener?.postMessage('vetka:login', '*')
+        window.close()
+        return
       }
       const dest = await getPostLoginDestination()
       if (dest !== '/') {
