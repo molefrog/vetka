@@ -36,6 +36,19 @@ export async function loadConversations(apiBase: string): Promise<Conversation[]
   }
 }
 
+// The viewer's unread-conversation count, for the Messages icon badge. Returns 0
+// when logged out / no site, or on any error.
+export async function loadUnreadCount(apiBase: string): Promise<number> {
+  try {
+    const r = await fetch(`${apiBase}/api/notch/conversations`, { credentials: 'include' })
+    if (!r.ok) return 0
+    const d = await r.json()
+    return (d.unreadCount ?? 0) as number
+  } catch {
+    return 0
+  }
+}
+
 // The full thread with one peer (also marks inbound messages read server-side).
 export async function loadThread(apiBase: string, peerId: string): Promise<ChatMessage[]> {
   try {

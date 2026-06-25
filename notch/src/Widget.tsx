@@ -15,6 +15,7 @@ import { FeedPanel } from './FeedPanel'
 import { ReactionsOverlay } from './ReactionsOverlay'
 import { createReaction, type Signal } from './reactions-data'
 import { setFollow } from './follows-data'
+import { loadUnreadCount } from './messages-data'
 
 const SIGNALS: { key: Signal; label: string }[] = [
   { key: 'heart', label: 'Love this' },
@@ -39,6 +40,7 @@ const FROST = {
   tipBg: 'rgba(10,10,14,.82)',
   tipInk: '#ffffff',
   avatarBg: 'rgba(255,255,255,.12)',
+  badge: '#ef4444',
 }
 
 // The viewer's relationship to the page the notch is embedded on.
@@ -183,6 +185,7 @@ export function Widget({ apiBase, forceMode, forceDomain }: Props) {
   const [user, setUser] = useState<User | null | undefined>(undefined)
   const [ctx, setCtx] = useState<SiteCtx | null>(null)
   const [openPanel, setOpenPanel] = useState<string | null>(null)
+  const [unread, setUnread] = useState(0)
   const [following, setFollowing] = useState(false)
   const followPending = useRef(false)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -215,10 +218,25 @@ export function Widget({ apiBase, forceMode, forceDomain }: Props) {
       .catch(() => setCtx(null))
   }
 
+  // Unread DM count for the Messages icon badge. Returns 0 when logged out.
+  const loadUnread = () =>
+    loadUnreadCount(apiBase)
+      .then(setUnread)
+      .catch(() => {})
+
   useEffect(() => {
     loadUser()
     loadCtx()
+    loadUnread()
   }, [apiBase, forceDomain])
+
+  // Refresh the badge after the Messages panel closes — opening a thread marks
+  // its inbound messages read server-side, so the count may have dropped.
+  const prevPanel = useRef<string | null>(null)
+  useEffect(() => {
+    if (prevPanel.current === 'messages' && openPanel !== 'messages') loadUnread()
+    prevPanel.current = openPanel
+  }, [openPanel])
 
   // Log in by handing off to the vetka home page (the widget runs cross-origin on
   // third-party sites and can't host the auth UI / OAuth redirects). The home page
@@ -244,6 +262,7 @@ export function Widget({ apiBase, forceMode, forceDomain }: Props) {
       loginPopup.current = null
       loadUser()
       loadCtx()
+      loadUnread()
       try {
         window.focus()
       } catch {}
@@ -255,6 +274,7 @@ export function Widget({ apiBase, forceMode, forceDomain }: Props) {
       if (!loginPopup.current) return
       loadUser()
       loadCtx()
+      loadUnread()
       if (loginPopup.current.closed) loginPopup.current = null
     }
     window.addEventListener('message', onMessage)
@@ -588,6 +608,35 @@ export function Widget({ apiBase, forceMode, forceDomain }: Props) {
                   )
                 ) : (
                   <NotchIcon name={slot.key} size={25} />
+                )}
+
+                {/* Unread DM counter on the Messages icon. */}
+                {slot.kind === 'icon' && slot.key === 'messages' && unread > 0 && (
+                  <span
+                    aria-label={`${unread} unread messages`}
+                    style={{
+                      position: 'absolute',
+                      top: 3,
+                      right: 3,
+                      minWidth: 17,
+                      height: 17,
+                      padding: '0 4px',
+                      borderRadius: 999,
+                      background: FROST.badge,
+                      color: '#fff',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      lineHeight: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      // Ring so the badge reads clearly over the icon/glass.
+                      boxShadow: '0 0 0 2px rgba(20,20,26,.55)',
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    {unread > 9 ? '9+' : unread}
+                  </span>
                 )}
 
                 {showTip &&
