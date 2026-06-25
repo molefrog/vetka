@@ -58,10 +58,13 @@ account           BetterAuth core (passwords, OAuth tokens)
 verification      BetterAuth core
 tangledIdentity   did(pk) · handle · userId → user · selectedRepo{Uri,Name,Knot}
 agentSession      userId(unique) → user · sessionId (Anthropic session ID)
+                    · sshPrivateKey · sshPublicKey · sshKeyFileId
 site              id · domain(unique) · userId → user · isTangled · did → tangledIdentity
                     · repo{Uri,Name,Knot} · status(draft|building|live|error) · buildLog
 follow            followerId → site · followeeId → site  (unique pair)
 message           fromId → site · toId → site · body · readAt
+reaction          pageUrl(indexed) · siteId → site · authorUserId → user
+                    · emoji · x · y (0–100% position) · body (optional comment)
 ```
 
 ## TanStack Start patterns

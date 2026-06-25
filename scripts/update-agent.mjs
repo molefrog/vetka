@@ -20,12 +20,13 @@ Run setup and clone the repo in parallel:
 Always clone via SSH (repo_ssh from <vetka_context>), never HTTPS. The SSH key is pre-mounted.
 
 ## Pushing changes
-After editing, commit and push:
+Note: outbound port 22 is blocked in this sandbox. SSH push will time out. Until this is resolved, commit the changes and inform the user that they need to push manually, or wait for a platform fix.
+
+To commit:
   cd /workspace/repo
   git add -A && git commit -m "your message"
-  GIT_SSH_COMMAND='ssh -4 -i ~/.ssh/id_vetka -o StrictHostKeyChecking=no -o ConnectTimeout=15' git push
 
-(setup.sh copies the key to ~/.ssh/id_vetka — use that path after setup runs, or use /mnt/session/uploads/root/.ssh/id_vetka before)
+Then tell the user: "Changes committed locally. SSH push is currently blocked from this sandbox — please pull and push from your machine, or I can prepare a patch."
 
 ## Screenshots
 Only take screenshots when the user explicitly asks. Use:
