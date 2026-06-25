@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, type CSSProperties } from 'react'
-import { Facehash } from 'facehash'
 import { NotchIcon, type IconName } from './NotchIcon'
+import { VetkaMark } from './VetkaMark'
+import { Avatar } from './Avatar'
+import { MessagesPanel } from './MessagesPanel'
 
 // Frost — dark glass (the recommended universal default, per local-drafts/README.md).
 const FROST = {
@@ -73,12 +75,12 @@ const MODES: Record<NotchMode, Slot[]> = {
 
 const BTN: CSSProperties = {
   position: 'relative',
-  width: 32,
-  height: 32,
+  width: 40,
+  height: 40,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  borderRadius: 9,
+  borderRadius: 11,
   cursor: 'pointer',
   flex: '0 0 auto',
   transition: 'background .15s ease',
@@ -88,44 +90,13 @@ const BTN: CSSProperties = {
   color: FROST.ink,
 }
 
-// Renders a real photo when `src` loads, otherwise a deterministic facehash
-// avatar seeded by `seed` — masked into the 32px circle.
-function Avatar({ src, seed }: { src?: string; seed: string }) {
-  const [broken, setBroken] = useState(false)
-  const showImg = !!src && !broken
-  return (
-    <div
-      style={{
-        width: 32,
-        height: 32,
-        borderRadius: 999,
-        overflow: 'hidden',
-        flex: '0 0 auto',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: FROST.avatarBg,
-      }}
-    >
-      {showImg ? (
-        <img
-          src={src}
-          alt=""
-          onError={() => setBroken(true)}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-        />
-      ) : (
-        <Facehash name={seed} size={32} interactive={false} />
-      )}
-    </div>
-  )
-}
-
 export function Widget({ apiBase, forceMode }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [tip, setTip] = useState<string | null>(null)
   const [hovered, setHovered] = useState<string | null>(null)
   const [user, setUser] = useState<User | null | undefined>(undefined)
+  const [openPanel, setOpenPanel] = useState<string | null>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetch(`${apiBase}/api/notch/me`, { credentials: 'include' })
@@ -141,6 +112,21 @@ export function Widget({ apiBase, forceMode }: Props) {
   // Favicon of the embedding site as the avatar source (owner = this page).
   const faviconUrl =
     typeof window !== 'undefined' ? `${window.location.origin}/favicon.ico` : ''
+
+  // Mock identity of the page owner (host page) — used by the visitor-mode
+  // "message the owner" suggestion until real owner detection is wired.
+  const owner = {
+    name:
+      (typeof document !== 'undefined' && document.title) ||
+      (typeof window !== 'undefined' ? window.location.hostname : 'this site'),
+    avatarSrc: faviconUrl,
+    seed: typeof window !== 'undefined' ? window.location.hostname : 'site',
+  }
+
+  const closePanel = () => {
+    setOpenPanel(null)
+    setExpanded(false)
+  }
 
   const tipTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const clearTipTimer = () => {
@@ -160,6 +146,23 @@ export function Widget({ apiBase, forceMode }: Props) {
   }
   useEffect(() => clearTipTimer, [])
 
+  // While a panel is open, dismiss it on outside click or Escape.
+  useEffect(() => {
+    if (!openPanel) return
+    const onDown = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) closePanel()
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closePanel()
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [openPanel])
+
   const collapse = () => {
     setExpanded(false)
     setTip(null)
@@ -169,6 +172,7 @@ export function Widget({ apiBase, forceMode }: Props) {
 
   return (
     <div
+      ref={rootRef}
       style={{
         position: 'fixed',
         bottom: 20,
@@ -179,21 +183,27 @@ export function Widget({ apiBase, forceMode }: Props) {
         alignItems: 'flex-end',
       }}
       onMouseEnter={() => setExpanded(true)}
-      onMouseLeave={collapse}
+      onMouseLeave={() => {
+        if (!openPanel) collapse()
+      }}
     >
+      {openPanel === 'messages' && (
+        <MessagesPanel mode={mode} owner={owner} onClose={closePanel} />
+      )}
+
       {/* The shell: a logo circle when closed, a pill row when expanded. */}
       <div
         style={{
           display: 'inline-flex',
           alignItems: 'center',
-          padding: 5,
+          padding: 6,
           background: FROST.surface,
           color: FROST.ink,
           border: FROST.border,
           boxShadow: FROST.shadow,
           backdropFilter: FROST.blur,
           WebkitBackdropFilter: FROST.blur,
-          borderRadius: expanded ? 22 : 999,
+          borderRadius: expanded ? 28 : 999,
           transition: expanded
             ? 'border-radius .28s ease'
             : 'border-radius .18s ease',
@@ -206,10 +216,10 @@ export function Widget({ apiBase, forceMode }: Props) {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            height: 32,
+            height: 40,
             color: FROST.logo,
             overflow: 'hidden',
-            maxWidth: expanded ? 0 : 32,
+            maxWidth: expanded ? 0 : 40,
             opacity: expanded ? 0 : 1,
             transition: expanded
               ? 'max-width .16s ease, opacity .12s ease'
@@ -218,15 +228,15 @@ export function Widget({ apiBase, forceMode }: Props) {
         >
           <div
             style={{
-              width: 32,
-              height: 32,
+              width: 40,
+              height: 40,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               flex: '0 0 auto',
             }}
           >
-            <NotchIcon name="logo" />
+            <VetkaMark size={33} variant="lean" />
           </div>
         </div>
 
@@ -235,9 +245,9 @@ export function Widget({ apiBase, forceMode }: Props) {
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 4,
+            gap: 5,
             overflow: expanded ? 'visible' : 'hidden',
-            maxWidth: expanded ? 480 : 0,
+            maxWidth: expanded ? 600 : 0,
             opacity: expanded ? 1 : 0,
             transition: expanded
               ? 'max-width .28s ease, opacity .18s ease .12s'
@@ -246,14 +256,22 @@ export function Widget({ apiBase, forceMode }: Props) {
         >
           {slots.map((slot) => {
             const showTip = expanded && tip === slot.id
+            const isMessages = slot.kind === 'icon' && slot.key === 'messages'
+            const active = isMessages && openPanel === 'messages'
             return (
               <button
                 key={slot.id}
                 type="button"
+                onClick={
+                  isMessages
+                    ? () =>
+                        setOpenPanel((p) => (p === 'messages' ? null : 'messages'))
+                    : undefined
+                }
                 style={{
                   ...BTN,
                   background:
-                    hovered === slot.id && slot.kind === 'icon'
+                    active || (hovered === slot.id && slot.kind === 'icon')
                       ? FROST.hoverBg
                       : 'transparent',
                 }}
@@ -276,24 +294,24 @@ export function Widget({ apiBase, forceMode }: Props) {
                     <Avatar src={user?.image ?? undefined} seed={user?.email ?? 'anon'} />
                   )
                 ) : (
-                  <NotchIcon name={slot.key} />
+                  <NotchIcon name={slot.key} size={25} />
                 )}
 
                 {showTip && (
                   <span
                     style={{
                       position: 'absolute',
-                      bottom: 'calc(100% + 9px)',
+                      bottom: 'calc(100% + 11px)',
                       left: '50%',
                       transform: 'translateX(-50%)',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 6,
-                      padding: '5px 8px',
-                      borderRadius: 8,
+                      gap: 8,
+                      padding: '6px 10px',
+                      borderRadius: 10,
                       background: FROST.tipBg,
                       color: FROST.tipInk,
-                      fontSize: 11,
+                      fontSize: 14,
                       lineHeight: 1,
                       fontWeight: 600,
                       whiteSpace: 'nowrap',
@@ -308,9 +326,9 @@ export function Widget({ apiBase, forceMode }: Props) {
                     {slot.kind === 'icon' && slot.sc && (
                       <span
                         style={{
-                          fontSize: 10,
-                          padding: '2px 5px',
-                          borderRadius: 5,
+                          fontSize: 13,
+                          padding: '3px 6px',
+                          borderRadius: 6,
                           background: FROST.tipChipBg,
                           color: 'inherit',
                           fontFamily: "'IBM Plex Mono', monospace",

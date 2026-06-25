@@ -1,5 +1,6 @@
 import { createFileRoute, redirect, Link } from '@tanstack/react-router'
 import { getAuthSession, getUserSites, getTangledIdentity } from '../../lib/session-fns'
+import { VetkaLogo } from '../../components/VetkaLogo'
 
 export const Route = createFileRoute('/sites/')({
   beforeLoad: async () => {
@@ -20,7 +21,10 @@ function SitesPage() {
     <div className="min-h-screen px-4 py-10">
       <div className="max-w-lg mx-auto space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-lg font-semibold">Your sites</h1>
+          <h1 className="flex items-center gap-2 text-lg font-semibold">
+            <VetkaLogo size={20} />
+            Your sites
+          </h1>
           <Link to="/" className="text-sm text-zinc-400 hover:text-zinc-700">← Home</Link>
         </div>
 
