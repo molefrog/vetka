@@ -71,6 +71,29 @@ CREATE TABLE "site" (
 	CONSTRAINT "site_domain_unique" UNIQUE("domain")
 );
 --> statement-breakpoint
+CREATE TABLE "site_image" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"site_id" uuid NOT NULL,
+	"data" "bytea" NOT NULL,
+	"mime_type" text DEFAULT 'image/webp' NOT NULL,
+	"width" integer NOT NULL,
+	"height" integer NOT NULL,
+	"byte_size" integer NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "site_snapshot" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"site_id" uuid NOT NULL,
+	"image_id" uuid,
+	"commit_sha" text,
+	"commit_message" text,
+	"branch" text DEFAULT 'main' NOT NULL,
+	"status" text DEFAULT 'pending' NOT NULL,
+	"triggered_by" text DEFAULT 'agent' NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "tangled_identity" (
 	"did" text PRIMARY KEY NOT NULL,
 	"handle" text NOT NULL,
@@ -111,5 +134,9 @@ ALTER TABLE "message" ADD CONSTRAINT "message_to_id_site_id_fk" FOREIGN KEY ("to
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "site" ADD CONSTRAINT "site_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "site" ADD CONSTRAINT "site_did_tangled_identity_did_fk" FOREIGN KEY ("did") REFERENCES "public"."tangled_identity"("did") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "site_image" ADD CONSTRAINT "site_image_site_id_site_id_fk" FOREIGN KEY ("site_id") REFERENCES "public"."site"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "site_snapshot" ADD CONSTRAINT "site_snapshot_site_id_site_id_fk" FOREIGN KEY ("site_id") REFERENCES "public"."site"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "site_snapshot" ADD CONSTRAINT "site_snapshot_image_id_site_image_id_fk" FOREIGN KEY ("image_id") REFERENCES "public"."site_image"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "tangled_identity" ADD CONSTRAINT "tangled_identity_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-CREATE UNIQUE INDEX "follow_pair" ON "follow" USING btree ("follower_id","followee_id");
+CREATE UNIQUE INDEX "follow_pair" ON "follow" USING btree ("follower_id","followee_id");--> statement-breakpoint
+CREATE INDEX "site_image_site_created" ON "site_image" USING btree ("site_id","created_at");
