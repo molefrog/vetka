@@ -1,4 +1,9 @@
-import { pgTable, text, timestamp, boolean, uuid, real, uniqueIndex, index } from 'drizzle-orm/pg-core'
+import { pgTable, text, timestamp, boolean, uuid, uniqueIndex, integer, index, customType } from 'drizzle-orm/pg-core'
+
+// PostgreSQL bytea for raw binary blobs (images, etc.)
+const bytea = customType<{ data: Buffer }>({
+  dataType() { return 'bytea' },
+})
 
 // ---------------------------------------------------------------------------
 // better-auth core tables (email + Google)
@@ -137,25 +142,46 @@ export const message = pgTable('message', {
 })
 
 // ---------------------------------------------------------------------------
-// Page reactions — emoji "stamps" pinned to a URL (FigJam-style overlay).
-// Additive: the rest of the social layer (follows, DMs) reuses `follow` and
-// `message`; only reactions are a net-new entity with no existing table.
+// Site images — visual thumbnails stored as binary blobs.
+// Format: WebP, exactly 800×600 (4:3). Many rows per site; the most recent
+// row is the "current" thumbnail. Query: WHERE site_id = ? ORDER BY created_at DESC LIMIT 1
 // ---------------------------------------------------------------------------
 
-export const reaction = pgTable(
-  'reaction',
+export const siteImage = pgTable(
+  'site_image',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    pageUrl: text('page_url').notNull(), // full URL/path the stamp sits on
-    siteId: uuid('site_id').references(() => site.id, { onDelete: 'cascade' }), // host site if registered
-    authorUserId: text('author_user_id')
+    siteId: uuid('site_id')
       .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    emoji: text('emoji').notNull(),
-    x: real('x').notNull(), // 0..100 % position
-    y: real('y').notNull(),
-    body: text('body'), // optional comment with the stamp
+      .references(() => site.id, { onDelete: 'cascade' }),
+    data: bytea('data').notNull(),
+    mimeType: text('mime_type').notNull().default('image/webp'),
+    width: integer('width').notNull(),
+    height: integer('height').notNull(),
+    byteSize: integer('byte_size').notNull(),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
-  (t) => [index('reaction_page').on(t.pageUrl)],
+  (t) => [index('site_image_site_created').on(t.siteId, t.createdAt)],
 )
+
+// ---------------------------------------------------------------------------
+// Site snapshots — one row per agent-triggered build/commit/push.
+// Screenshot capture is intentionally left as a stub (imageId nullable).
+// ---------------------------------------------------------------------------
+
+export const siteSnapshot = pgTable('site_snapshot', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  siteId: uuid('site_id')
+    .notNull()
+    .references(() => site.id, { onDelete: 'cascade' }),
+  imageId: uuid('image_id').references(() => siteImage.id, { onDelete: 'set null' }),
+  commitSha: text('commit_sha'),
+  commitMessage: text('commit_message'),
+  branch: text('branch').notNull().default('main'),
+  // 'pending' | 'building' | 'success' | 'failed'
+  status: text('status').notNull().default('pending'),
+  // 'agent' | 'manual'
+  triggeredBy: text('triggered_by').notNull().default('agent'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+})
+

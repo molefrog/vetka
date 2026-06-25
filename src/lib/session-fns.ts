@@ -107,6 +107,7 @@ export const createSite = createServerFn({ method: 'POST' })
     const { db } = await import('../db')
     const { site } = await import('../db/schema')
 
+    const { sql } = await import('drizzle-orm')
     const [created] = await db
       .insert(site)
       .values({
@@ -118,6 +119,18 @@ export const createSite = createServerFn({ method: 'POST' })
         repoName: data.repoName,
         repoKnot: data.repoKnot,
         status: 'draft',
+      })
+      .onConflictDoUpdate({
+        target: site.domain,
+        set: {
+          userId: session.user.id,
+          isTangled: data.isTangled,
+          did: data.did,
+          repoUri: data.repoUri,
+          repoName: data.repoName,
+          repoKnot: data.repoKnot,
+          updatedAt: sql`now()`,
+        },
       })
       .returning()
 

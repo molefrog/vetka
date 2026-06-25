@@ -10,7 +10,7 @@ export const Route = createFileRoute('/setup/script')({
   component: SetupScriptPage,
 })
 
-const SCRIPT_TAG = `<script src="https://vetka.sh/notch.js" async></script>`
+const SCRIPT_TAG = `<script type="module" src="https://vetka.sh/notch.js"></script>`
 
 function SetupScriptPage() {
   const router = useRouter()

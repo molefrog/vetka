@@ -11,7 +11,20 @@ import { VetkaMark } from './VetkaMark'
 import { Avatar } from './Avatar'
 import { MessagesPanel } from './MessagesPanel'
 import { FollowsPanel } from './FollowsPanel'
+import { ReactionsOverlay } from './ReactionsOverlay'
+import { createReaction, type Signal } from './reactions-data'
 import { setFollow } from './follows-data'
+
+const SIGNALS: { key: Signal; label: string }[] = [
+  { key: 'heart', label: 'Love this' },
+  { key: 'star', label: 'A standout' },
+  { key: 'fire', label: 'This is great' },
+  { key: 'wow', label: 'That surprised me' },
+  { key: 'like', label: 'Agree' },
+  { key: 'idea', label: 'Insightful' },
+  { key: 'save', label: 'Keep for later' },
+  { key: 'question', label: 'I have a question' },
+]
 
 // Frost — dark glass (the recommended universal default, per local-drafts/README.md).
 const FROST = {
@@ -172,6 +185,12 @@ export function Widget({ apiBase, forceMode }: Props) {
   // The login tab opened on the vetka origin (kept so we can close it on success).
   const loginPopup = useRef<Window | null>(null)
 
+  // Reactions state
+  const [showOverlay, setShowOverlay] = useState(false)
+  const [reactMode, setReactMode] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickedSignal, setPickedSignal] = useState<Signal | null>(null)
+
   const loadUser = () =>
     fetch(`${apiBase}/api/notch/me`, { credentials: 'include' })
       .then((r) => r.json())
@@ -326,12 +345,29 @@ export function Widget({ apiBase, forceMode }: Props) {
     }
   }, [openPanel])
 
+  // Escape cancels react mode / picker
+  useEffect(() => {
+    if (!reactMode && !pickerOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setReactMode(false)
+        setPickerOpen(false)
+        setPickedSignal(null)
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [reactMode, pickerOpen])
+
   const collapse = () => {
     setExpanded(false)
     setTip(null)
     setHovered(null)
     clearTipTimer()
   }
+
+  const domain = typeof window !== 'undefined' ? window.location.hostname : ''
+  const pageUrl = typeof window !== 'undefined' ? window.location.href : ''
 
   return (
     <div
@@ -360,6 +396,44 @@ export function Widget({ apiBase, forceMode }: Props) {
           apiBase={apiBase}
           of={followsSubject}
           onClose={closePanel}
+        />
+      )}
+
+      {/* Signal picker — floats above the notch bar when "react" is clicked */}
+      {pickerOpen && (
+        <SignalPicker
+          apiBase={apiBase}
+          onPick={(signal) => {
+            setPickerOpen(false)
+            setPickedSignal(signal)
+            setReactMode(true)
+            setShowOverlay(true)
+          }}
+        />
+      )}
+
+      {/* Reactions overlay — portaled into document.body */}
+      {(showOverlay || reactMode) && user && (
+        <ReactionsOverlay
+          domain={domain}
+          pageUrl={pageUrl}
+          reactMode={reactMode}
+          pickedSignal={pickedSignal}
+          apiBase={apiBase}
+          onPlace={(x, y) => {
+            if (!pickedSignal) return
+            createReaction({
+              pageUrl,
+              domain,
+              signal: pickedSignal,
+              x,
+              y,
+              authorName: user.name,
+              authorSeed: user.email,
+            })
+            setReactMode(false)
+            setPickedSignal(null)
+          }}
         />
       )}
 
@@ -436,8 +510,14 @@ export function Widget({ apiBase, forceMode }: Props) {
             const isAvatar = slot.kind === 'avatar'
             const isFollow = slot.kind === 'icon' && slot.key === 'follow'
             const isLogin = slot.kind === 'icon' && slot.key === 'login'
+            const isReactions = slot.kind === 'icon' && slot.key === 'reactions'
+            const isReact = slot.kind === 'icon' && slot.key === 'react'
             // The follow button reads as "on" while subscribed, like an open panel.
-            const active = (panelKey != null && openPanel === panelKey) || (isFollow && following)
+            const active =
+              (panelKey != null && openPanel === panelKey) ||
+              (isFollow && following) ||
+              (isReactions && showOverlay) ||
+              (isReact && (pickerOpen || reactMode))
             return (
               <button
                 key={slot.id}
@@ -449,9 +529,19 @@ export function Widget({ apiBase, forceMode }: Props) {
                       ? toggleFollow
                       : isLogin
                         ? startLogin
-                        : isAvatar
-                          ? () => window.open(`${apiBase}/`, '_blank', 'noopener')
-                          : undefined
+                        : isReactions
+                          ? () => setShowOverlay((v) => !v)
+                          : isReact
+                            ? () => {
+                                setPickerOpen((v) => !v)
+                                if (reactMode) {
+                                  setReactMode(false)
+                                  setPickedSignal(null)
+                                }
+                              }
+                            : isAvatar
+                              ? () => window.open(`${apiBase}/`, '_blank', 'noopener')
+                              : undefined
                 }
                 style={{
                   ...BTN,
@@ -543,5 +633,86 @@ export function Widget({ apiBase, forceMode }: Props) {
         </div>
       </div>
     </div>
+  )
+}
+
+// Signal picker — a 4×2 grid of chip stickers that floats above the notch bar.
+function SignalPicker({
+  apiBase,
+  onPick,
+}: {
+  apiBase: string
+  onPick: (signal: Signal) => void
+}) {
+  return (
+    <div
+      onMouseDown={(e) => e.stopPropagation()}
+      style={{
+        position: 'absolute',
+        bottom: 'calc(100% + 12px)',
+        right: 0,
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4, 48px)',
+        gap: 8,
+        padding: '14px 14px',
+        background: 'rgba(18,18,24,.92)',
+        border: '1px solid rgba(255,255,255,.12)',
+        borderRadius: 18,
+        boxShadow: '0 16px 48px rgba(0,0,0,.45)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        animation: 'notch-panel-in .16s ease-out',
+        transformOrigin: 'bottom right',
+        zIndex: 10,
+      }}
+    >
+      {SIGNALS.map(({ key, label }) => (
+        <SignalChip key={key} signal={key} label={label} apiBase={apiBase} onPick={onPick} />
+      ))}
+    </div>
+  )
+}
+
+function SignalChip({
+  signal,
+  label,
+  apiBase,
+  onPick,
+}: {
+  signal: Signal
+  label: string
+  apiBase: string
+  onPick: (signal: Signal) => void
+}) {
+  const [hover, setHover] = useState(false)
+  return (
+    <button
+      type="button"
+      title={label}
+      onClick={() => onPick(signal)}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        width: 48,
+        height: 48,
+        background: hover ? 'rgba(255,255,255,.18)' : 'rgba(255,255,255,.08)',
+        borderRadius: 13,
+        border: 'none',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        transition: 'background .12s ease, transform .1s ease',
+        transform: hover ? 'scale(1.10)' : 'none',
+        padding: 0,
+      }}
+    >
+      <img
+        src={`${apiBase}/reactions/${signal}.svg`}
+        alt={label}
+        style={{ width: '62%', height: '62%', display: 'block' }}
+        draggable={false}
+      />
+    </button>
   )
 }

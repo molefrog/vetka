@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { and, desc, eq, isNull } from 'drizzle-orm'
 import { db } from '../../../db'
-import { follow, message, reaction, user } from '../../../db/schema'
+import { follow, message } from '../../../db/schema'
 import {
   corsJson,
   corsOptions,
@@ -35,25 +35,10 @@ export const Route = createFileRoute('/api/notch/notifications')({
           .orderBy(desc(follow.createdAt))
           .limit(20)
 
-        // Recent reactions on the viewer's pages.
-        const reactions = await db
-          .select({
-            emoji: reaction.emoji,
-            createdAt: reaction.createdAt,
-            authorUserId: reaction.authorUserId,
-            authorName: user.name,
-            authorImage: user.image,
-          })
-          .from(reaction)
-          .leftJoin(user, eq(reaction.authorUserId, user.id))
-          .where(eq(reaction.siteId, me))
-          .orderBy(desc(reaction.createdAt))
-          .limit(20)
-
         const followerProfiles = await siteProfiles(follows.map((f) => f.followerId))
 
-        const items = [
-          ...follows.map((f) => {
+        const items = follows
+          .map((f) => {
             const p = followerProfiles.get(f.followerId)
             return {
               type: 'follow' as const,
@@ -65,18 +50,7 @@ export const Route = createFileRoute('/api/notch/notifications')({
               },
               createdAt: f.createdAt.toISOString(),
             }
-          }),
-          ...reactions.map((r) => ({
-            type: 'reaction' as const,
-            text: `reacted ${r.emoji}`,
-            actor: {
-              name: r.authorName ?? 'Someone',
-              image: r.authorImage ?? null,
-              seed: r.authorUserId,
-            },
-            createdAt: r.createdAt.toISOString(),
-          })),
-        ]
+          })
           .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
           .slice(0, 20)
 
