@@ -4,6 +4,7 @@ import { auth } from '../../../lib/auth.server'
 import { getAnthropicClient } from '../../../lib/agent.server'
 import { db } from '../../../db'
 import { tangledIdentity } from '../../../db/schema'
+import { pushBundle } from '../../../lib/push.server'
 
 function extractBlockText(content: Array<{ type: string; text?: string }> | null | undefined): string {
   return (content ?? []).filter((b) => b.type === 'text').map((b) => b.text ?? '').join('\n')
@@ -115,35 +116,71 @@ export const Route = createFileRoute('/api/agent/stream')({
                 events: [{ type: 'user.message', content: content as any }],
               })
 
-              const stream = client.beta.sessions.events.stream(sessionId)
-              for await (const evt of await stream) {
-                const e = evt as any
+              // Loop to handle custom tool calls: stream → pause → execute tool → resume
+              while (true) {
+                type PendingTool = { id: string; name: string; input: Record<string, unknown>; session_thread_id?: string | null }
+                let pendingCustomTool: PendingTool | null = null
+                let terminated = false
 
-                if (evt.type === 'agent.thinking') {
-                  send({ type: 'thinking' })
-                } else if (evt.type === 'agent.message') {
-                  for (const block of evt.content ?? []) {
-                    if (block.type === 'text' && block.text) {
-                      send({ type: 'text', text: block.text })
+                const stream = client.beta.sessions.events.stream(sessionId)
+                for await (const evt of await stream) {
+                  const e = evt as any
+
+                  if (evt.type === 'agent.thinking') {
+                    send({ type: 'thinking' })
+                  } else if (evt.type === 'agent.message') {
+                    for (const block of evt.content ?? []) {
+                      if (block.type === 'text' && block.text) {
+                        send({ type: 'text', text: block.text })
+                      }
                     }
+                  } else if (evt.type === 'agent.tool_use') {
+                    send({ type: 'tool_use', id: evt.id, name: evt.name, input: evt.input })
+                  } else if (e.type === 'agent.mcp_tool_use') {
+                    send({ type: 'tool_use', id: e.id, name: `${e.mcp_server_name}:${e.name}`, input: e.input })
+                  } else if (e.type === 'agent.custom_tool_use') {
+                    pendingCustomTool = { id: e.id, name: e.name, input: e.input, session_thread_id: e.session_thread_id }
+                    send({ type: 'tool_use', id: e.id, name: e.name, input: e.input })
+                  } else if (e.type === 'agent.tool_result') {
+                    send({ type: 'tool_result', tool_use_id: e.tool_use_id, output: extractBlockText(e.content), is_error: !!e.is_error })
+                  } else if (e.type === 'agent.mcp_tool_result') {
+                    send({ type: 'tool_result', tool_use_id: e.mcp_tool_use_id, output: extractBlockText(e.content), is_error: !!e.is_error })
                   }
-                } else if (evt.type === 'agent.tool_use') {
-                  send({ type: 'tool_use', id: evt.id, name: evt.name, input: evt.input })
-                } else if (e.type === 'agent.mcp_tool_use') {
-                  send({ type: 'tool_use', id: e.id, name: `${e.mcp_server_name}:${e.name}`, input: e.input })
-                } else if (e.type === 'agent.custom_tool_use') {
-                  send({ type: 'tool_use', id: e.id, name: e.name, input: e.input })
-                } else if (e.type === 'agent.tool_result') {
-                  send({ type: 'tool_result', tool_use_id: e.tool_use_id, output: extractBlockText(e.content), is_error: !!e.is_error })
-                } else if (e.type === 'agent.mcp_tool_result') {
-                  send({ type: 'tool_result', tool_use_id: e.mcp_tool_use_id, output: extractBlockText(e.content), is_error: !!e.is_error })
+
+                  if (evt.type === 'session.status_idle' || (e.type as string) === 'session.thread_status_idle') break
+                  if (evt.type === 'session.status_terminated') {
+                    terminated = true
+                    send({ error: 'Session terminated' })
+                    break
+                  }
                 }
 
-                if (evt.type === 'session.status_idle' || (e.type as string) === 'session.thread_status_idle') break
-                if (evt.type === 'session.status_terminated') {
-                  send({ error: 'Session terminated' })
-                  break
+                if (terminated) break
+
+                // If the session paused for a push_repo custom tool call, execute it and loop
+                if (pendingCustomTool?.name === 'push_repo') {
+                  send({ type: 'tool_result', tool_use_id: pendingCustomTool.id, output: 'Pushing…', is_error: false })
+
+                  const bundleB64 = pendingCustomTool.input.bundle_base64 as string
+                  const bundleBytes = Buffer.from(bundleB64, 'base64')
+                  const result = await pushBundle(bundleBytes, userId)
+
+                  await client.beta.sessions.events.send(sessionId, {
+                    events: [{
+                      type: 'user.custom_tool_result' as any,
+                      custom_tool_use_id: pendingCustomTool.id,
+                      content: [{ type: 'text', text: JSON.stringify(result) }],
+                      is_error: 'error' in result,
+                      session_thread_id: pendingCustomTool.session_thread_id ?? undefined,
+                    }],
+                  })
+
+                  // Send a proper tool_result to the UI with the outcome
+                  send({ type: 'tool_result', tool_use_id: pendingCustomTool.id, output: JSON.stringify(result), is_error: 'error' in result })
+                  continue // resume stream to get agent's next response
                 }
+
+                break // no custom tool pending → agent is done
               }
 
               send({ done: true })
