@@ -2,124 +2,150 @@
 
 A social layer for the personal web. People connect their websites, follow each other, and interact via **Notch** — a JS widget injected into any site.
 
-## Product overview (user perspective)
+## User types
 
-There are two types of users:
+**Regular user** — signs up with email/password, connects an existing website domain. Notch widget is installed by pasting a `<script>` tag. No agent access; can see the hub and interact socially.
 
-**Regular user** — signs in, connects an existing website domain. Gets Notch injected. No agent access; shown a stub ("move your site to Tangled to unlock the agent").
+**Tangled user** — signs in via AT Protocol / Tangled OAuth. Selects a Tangled git repo as their site. Gets full Notch + Anthropic Managed Agent access for AI-assisted site building.
 
-**Tangled user** — signs in via AT Protocol / Tangled OAuth. Selects or creates a Tangled repo (the deployment target). The agent can build and publish their site to that repo. Gets full Notch + agent access.
+Both converge on the same social layer: follow, feed, reactions, messages.
 
-Both paths converge on the same social layer:
+## User flows
 
-- **Notch widget** appears on every connected site. Shows reactions, overlay (FigJam-style stickers + comments anchored to page coordinates), follow button, and login prompt for logged-out visitors.
-- **SH (the hub — this app)** is the only centralized page: following list, new joiners, update feed, and discovery. Notch links back here for login and the feed.
-- **Agent** is persistent per site. Tangled users can open it from the hub ("Edit") or from Notch settings. It works on the current state of the site and can also customize Notch CSS.
+### Onboarding (post-login)
+`getPostLoginDestination()` decides where to send the user after login:
+- Has site → `/` (hub)
+- No site + Tangled identity → `/setup/tangled`
+- No site + no Tangled → `/setup/script`
 
-Login flow from a third-party site: visitor clicks login in Notch → redirect to SH → auth → return to original site, now logged in.
+### Tangled setup (`/setup/tangled`)
+1. `beforeLoad` guards auth; `loader` fetches `getTangledIdentity()` — redirects to `/setup/script` if no Tangled identity
+2. Client-side: `listRepos()` via AT Protocol (needs browser OAuth session — can't run server-side)
+3. User picks a repo → `createSite()` → redirect to `/sites/$domain/builder`
+
+### External site setup (`/setup/script`)
+1. `beforeLoad` guards auth
+2. User enters domain → sees `<script>` tag to paste
+3. Polls `/api/notch/check?domain=` every 5s → on detection, `createSite()` → redirect to `/`
+
+### Builder (`/sites/$domain/builder`)
+Split view: iframe (site preview) + chat (Anthropic Managed Agent). Auth guard in `beforeLoad`; agent session fetched client-side via `/api/agent/session`.
 
 ## Routes
 
 ```
-/notch.js                   Notch widget JS (built by Bun/bunup, served as static)
-/notch/test                 Dev playground — mock site with Notch injected
+/                           Hub: feed, notifications, new members, login modal
+/callback                   AT Protocol OAuth callback (resolves DID → handle via plc.directory)
+/setup/tangled              Pick Tangled repo (Tangled users only)
+/setup/script               Paste script tag (regular users)
+/sites                      User's sites list (one site max for now)
+/sites/$domain/builder      Agent + site preview
 
-/                           SH hub: following list (must), new joiners (must),
-                              update feed (nice), discovery
-/callback                   AT Protocol OAuth callback
-/u/:domain/builder          Agent for building/editing the site    [planned]
-/u/:domain/*                Other per-site pages                   [planned]
-/messages                   Messaging stub (icon only, no real chat) [planned]
-
-/api/auth/*                 BetterAuth handler (email/pass, Google, session)
-/api/oauth/client-metadata  AT Protocol client metadata JSON
-/api/agent/session          Create / fetch managed agent session
-/api/agent/message          Send message to agent
-/api/agent/stream           Stream agent responses (SSE)
-/api/notch/me               Returns { user: { name, email } | null } for the current session
-                              — CORS + credentials, works from any third-party origin
+/api/auth/*                 BetterAuth (email/pass, session)
+/api/oauth/client-metadata  AT Protocol client metadata
+/api/agent/session          Get or create Anthropic Managed Agent session
+/api/agent/stream           SSE stream for agent responses
+/api/notch/me               CORS + credentials — returns current user for Notch widget
+/api/notch/check            Server-side check if notch.js is on a domain
 ```
 
-Current stubs to rework: `/agent` → `/u/:domain/builder`, `/dashboard` / `/repos` / `/select-repo` → onboarding flow.
-
-## Architecture
+## Data model
 
 ```
-notch/src/              Notch widget source (React + inline CSS)
-notch/bunup.config.ts   Builds to ../public/notch.js
-
-src/routes/__root.tsx   Root layout
-src/routes/index.tsx    Hub home (/)
-src/routes/callback.tsx AT Protocol OAuth callback
-src/routes/agent.tsx    Agent UI (temp — will become /u/:domain/builder)
-src/routes/notch/test   Dev playground
-src/routes/api/agent/   SSE + session + message API routes
-src/routes/api/oauth/   AT Protocol client metadata
-src/routes/api/notch/   Notch public API (me.ts — session lookup, CORS)
-
-src/lib/auth.server.ts      BetterAuth server config
-src/lib/auth-client.ts      BetterAuth browser client (useSession, signIn, signOut)
-src/lib/oauth.ts            ensureOAuthConfigured() — atcute identity resolvers
-src/lib/tangled.ts          listRepos / addSshKey / XRPC helpers
-src/lib/agent.server.ts     Anthropic Managed Agents integration
-src/lib/session-fns.ts      TanStack server functions for session access
-src/db/schema.ts            Drizzle schema (source of truth)
-```
-
-## Schema
-
-```
-user              id · email · name · emailVerified · image
-session           BetterAuth managed
-account           BetterAuth managed (Google OAuth tokens, passwords)
-verification      BetterAuth managed
+user              BetterAuth core
+session           BetterAuth core
+account           BetterAuth core (passwords, OAuth tokens)
+verification      BetterAuth core
 tangledIdentity   did(pk) · handle · userId → user · selectedRepo{Uri,Name,Knot}
-agentSession      id · userId(unique) → user · sessionId (Anthropic session)
-website           id · userId → user · did → tangledIdentity · repo{Uri,Name,Knot}
-                    · domain(unique) · status(draft|building|live|error) · buildLog
+agentSession      userId(unique) → user · sessionId (Anthropic session ID)
+site              id · domain(unique) · userId → user · isTangled · did → tangledIdentity
+                    · repo{Uri,Name,Knot} · status(draft|building|live|error) · buildLog
+follow            followerId → site · followeeId → site  (unique pair)
+message           fromId → site · toId → site · body · readAt
 ```
 
-## Auth providers
+## TanStack Start patterns
 
-| Provider | How |
-|----------|-----|
+Use **loaders and `beforeLoad`** — not `useEffect` — for auth guards and server-fetched data.
+
+```typescript
+export const Route = createFileRoute('/some/route')({
+  // Auth guard — runs on server, throws redirect before render
+  beforeLoad: async () => {
+    const session = await getAuthSession()
+    if (!session?.user) throw redirect({ to: '/' })
+  },
+  // Data fetching — runs on server, available immediately
+  loader: async () => {
+    const sites = await getUserSites()
+    return { sites }
+  },
+  component: MyPage,
+})
+
+function MyPage() {
+  const { sites } = Route.useLoaderData()  // no loading state needed
+  // ...
+}
+```
+
+**Exceptions — keep client-side:**
+- `listRepos()` — reads AT Protocol OAuth session from browser localStorage
+- Agent session fetch — creates session on demand, not safe to deduplicate in loader
+
+**API routes** use `server.handlers` inside `createFileRoute`:
+```typescript
+export const Route = createFileRoute('/api/something')({
+  server: {
+    handlers: {
+      GET: async ({ request }) => Response.json({ ok: true }),
+      POST: async ({ request }) => { ... },
+    },
+  },
+})
+```
+Do NOT use `createAPIFileRoute` from `@tanstack/react-start/api` — it doesn't exist in this version.
+
+**Server functions** (`createServerFn`) are the right abstraction for shared server logic called from both loaders and client event handlers:
+```typescript
+export const getUserSites = createServerFn({ method: 'GET' }).handler(async () => {
+  const session = await getAuthSession()
+  if (!session?.user) return []
+  return db.select().from(schema.site).where(eq(schema.site.userId, session.user.id))
+})
+```
+
+## Auth
+
+| Provider | Flow |
+|---|---|
 | Email/password | BetterAuth built-in |
-| Google | BetterAuth socialProviders.google |
-| Tangled (AT Protocol) | Custom flow: atcute → `/callback` → BetterAuth session |
+| Tangled (AT Protocol) | `@atcute/oauth-browser-client` → `/callback` resolves DID via `plc.directory` → custom `/api/auth/sign-in/tangled` endpoint creates BetterAuth session |
 
-Tangled OAuth is a custom flow because AT Protocol auth servers are per-user/dynamic — BetterAuth's genericOAuth can't handle it. After `finalizeAuthorization()`, we look up or create a `tangledIdentity` by DID and create a BetterAuth session manually.
-
-## Stack
-
-- TanStack Start (Vite + React) + Tailwind v4 + TypeScript
-- BetterAuth 1.6 — auth, sessions, DB-backed
-- `@atcute/oauth-browser-client` — AT Protocol OAuth (browser, DPoP)
-- `@atcute/identity-resolver` — handle/DID resolution (DOH + well-known + PLC)
-- `@atcute/tangled` + `@atcute/atproto` — XRPC typed client + lexicons
-- Anthropic Managed Agents SDK — persistent per-user agent sessions
-- Drizzle ORM + postgres.js → Aiven PostgreSQL 17
-- bunup — Notch widget bundler (outputs `public/notch.js`)
-
-## Dev notes
-
-- Run: `bun run dev`
-- Notch widget: `cd notch && bun run dev` (watches + copies to `public/notch.js`)
-- Schema changes: edit `src/db/schema.ts` → `bunx drizzle-kit push`
-- AT Protocol `client_id` must be publicly reachable → use ngrok in dev
-- Required env: `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `DATABASE_URL`, `ANTHROPIC_API_KEY`
-
-## API routes
-
-Use `createFileRoute` with a `server: { handlers: { GET/POST/... } }` block. These routes are included in the route tree and work in both dev and production — TanStack Start's own Vite dev middleware (`handleServerRoutes`) dispatches to them in dev; Nitro handles them in production.
-
-Do **not** use `createAPIFileRoute` from `@tanstack/react-start/api` — it is not a real export in this version and routes using it are silently ignored.
-
-The only API routes that need a separate Vite middleware plugin are those handled by external libraries with their own server (e.g. `betterAuthPlugin` for `/api/auth/*`).
+`trustedOrigins` in `auth.server.ts` must include all domains (vetka.sh, tailscale URL, localhost).  
+`disableCSRFCheck: true` is set for non-production to allow cross-origin dev logins.
 
 ## Notch cross-origin auth
 
-The Notch widget runs on arbitrary third-party sites (`molefrog.com`, `evan.xyz`) and calls `vetka.sh/api/notch/*` with `credentials: 'include'`. For this to work:
+The widget runs on third-party sites and calls `vetka.sh/api/notch/*` with `credentials: 'include'`. Requires:
+1. CORS: reflect `Origin` header (not `*`), `Access-Control-Allow-Credentials: true`
+2. Cookie: `sameSite: 'none', secure: true` in production (`auth.server.ts`)
 
-1. **CORS:** the server must reflect the requesting `Origin` header (not `*`) and set `Access-Control-Allow-Credentials: true`. A wildcard origin blocks credentialed requests.
-2. **Cookie SameSite:** in production, `auth.server.ts` sets `cookieOptions: { sameSite: 'none', secure: true }` so the BetterAuth session cookie is sent cross-site. In dev this is skipped (HTTP localhost doesn't support `Secure`).
-3. **The widget** must call the API with `fetch('/api/notch/me', { credentials: 'include' })` — omitting `credentials` means no cookie is sent.
+## Stack
+
+- TanStack Start (Vite + React + SSR) + Tailwind v4 + TypeScript
+- BetterAuth 1.6 — sessions, DB-backed
+- `@atcute/oauth-browser-client` — AT Protocol OAuth (DPoP, browser-only)
+- `@atcute/identity-resolver` — handle/DID resolution
+- `@atcute/tangled` + `@atcute/atproto` — XRPC typed client + lexicons
+- Anthropic Managed Agents SDK — persistent per-user agent sessions
+- Drizzle ORM + postgres.js → Aiven PostgreSQL 17
+- bunup — Notch widget bundler (`notch/` → `public/notch.js`)
+
+## Dev
+
+- App: `bun run dev` (access via tailscale URL for Tangled OAuth)
+- Notch widget: `cd notch && bun run dev`
+- Schema changes: edit `src/db/schema.ts` → `bunx drizzle-kit push` (needs interactive TTY — run in terminal with `!`)
+- Nitro is excluded from dev (`vite.config.ts`) to avoid breaking TanStack's dev middleware
+- Same Aiven PostgreSQL instance used for dev and prod (hackathon)

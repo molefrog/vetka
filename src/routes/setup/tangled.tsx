@@ -1,61 +1,49 @@
-import { createFileRoute, useRouter } from '@tanstack/react-router'
+import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { getAuthSession, getTangledIdentity, createSite, saveSelectedRepo } from '../../lib/session-fns'
 import { listRepos, type Repo } from '../../lib/tangled'
 import { ensureOAuthConfigured } from '../../lib/oauth'
 import { cn } from '../../lib/cn'
 
-export const Route = createFileRoute('/setup/tangled')({ component: SetupTangledPage })
+export const Route = createFileRoute('/setup/tangled')({
+  beforeLoad: async () => {
+    const session = await getAuthSession()
+    if (!session?.user) throw redirect({ to: '/' })
+  },
+  loader: async () => {
+    const tangled = await getTangledIdentity()
+    if (!tangled) throw redirect({ to: '/setup/script' })
+    return { tangled }
+  },
+  component: SetupTangledPage,
+})
 
 function SetupTangledPage() {
   const router = useRouter()
+  const { tangled } = Route.useLoaderData()
   const [repos, setRepos] = useState<Repo[]>([])
   const [selected, setSelected] = useState<Repo | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [reposLoaded, setReposLoaded] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [tangledHandle, setTangledHandle] = useState('')
+
+  const domain = tangled.handle.startsWith('did:') ? null : tangled.handle
 
   useEffect(() => {
-    async function load() {
-      const session = await getAuthSession()
-      if (!session?.user) { router.navigate({ to: '/' }); return }
-
-      const tangled = await getTangledIdentity()
-      if (!tangled) { router.navigate({ to: '/setup/script' }); return }
-
-      // Derive a readable handle (handle is DID until resolved)
-      const handle = tangled.handle.startsWith('did:')
-        ? tangled.did.slice(-8)
-        : tangled.handle.split('.')[0]
-      setTangledHandle(handle)
-
-      try {
-        ensureOAuthConfigured()
-        setRepos(await listRepos())
-      } catch {
-        // no AT Protocol session in browser (e.g. after server redirect) — show empty state
-      } finally {
-        setLoading(false)
-      }
+    try {
+      ensureOAuthConfigured()
+      listRepos().then((r) => { setRepos(r); setReposLoaded(true) }).catch(() => setReposLoaded(true))
+    } catch {
+      setReposLoaded(true)
     }
-    load()
-  }, [router])
+  }, [])
 
   async function handleSave() {
-    if (!selected) return
+    if (!selected || !domain) return
     setSaving(true)
     setError(null)
     try {
-      const tangled = await getTangledIdentity()
-      if (!tangled) throw new Error('No tangled identity')
-
-      const handle = tangled.handle.startsWith('did:')
-        ? tangled.did.slice(-8)
-        : tangled.handle.split('.')[0]
       const knot = selected.knot ?? 'tngl.sh'
-      const domain = `${handle}.${knot}`
-
       await saveSelectedRepo({ data: { uri: selected.uri, name: selected.name, knot } })
       await createSite({
         data: {
@@ -67,20 +55,11 @@ function SetupTangledPage() {
           repoKnot: knot,
         },
       })
-
       router.navigate({ to: '/sites/$domain/builder', params: { domain } })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to set up site')
       setSaving(false)
     }
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-sm text-zinc-400">Loading…</p>
-      </div>
-    )
   }
 
   return (
@@ -89,9 +68,7 @@ function SetupTangledPage() {
         <div>
           <h1 className="text-xl font-semibold">Choose your website repo</h1>
           <p className="mt-1 text-sm text-zinc-500">
-            {tangledHandle
-              ? `Your site will be at ${tangledHandle}.tngl.sh`
-              : 'Select the Tangled repo for your site.'}
+            {domain ? <>Your site will be at <strong>{domain}</strong></> : 'Select the repo for your site.'}
           </p>
         </div>
 
@@ -101,7 +78,9 @@ function SetupTangledPage() {
           </p>
         )}
 
-        {repos.length === 0 ? (
+        {!reposLoaded ? (
+          <p className="text-sm text-zinc-400">Loading repos…</p>
+        ) : repos.length === 0 ? (
           <div className="space-y-3">
             <p className="text-sm text-zinc-500">
               No repos found. Create one on Tangled first, then come back here.
@@ -140,7 +119,7 @@ function SetupTangledPage() {
 
         <button
           onClick={handleSave}
-          disabled={!selected || saving}
+          disabled={!selected || !domain || saving}
           className="w-full py-2.5 text-sm font-medium rounded-lg bg-zinc-900 text-white hover:bg-zinc-700 disabled:opacity-40 transition-colors"
         >
           {saving ? 'Setting up…' : 'Set up site'}

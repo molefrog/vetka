@@ -1,13 +1,18 @@
-import { createFileRoute, useRouter } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { getAuthSession } from '../../../lib/session-fns'
 
-export const Route = createFileRoute('/sites/$domain/builder')({ component: BuilderPage })
+export const Route = createFileRoute('/sites/$domain/builder')({
+  beforeLoad: async () => {
+    const session = await getAuthSession()
+    if (!session?.user) throw redirect({ to: '/' })
+  },
+  component: BuilderPage,
+})
 
 type Message = { role: 'user' | 'assistant'; content: string }
 
 function BuilderPage() {
-  const router = useRouter()
   const { domain } = Route.useParams()
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -17,19 +22,12 @@ function BuilderPage() {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    async function init() {
-      const session = await getAuthSession()
-      if (!session?.user) { router.navigate({ to: '/' }); return }
-
-      const res = await fetch(`/api/agent/session?domain=${encodeURIComponent(domain)}`)
-      if (res.ok) {
-        const { id, messages: msgs } = (await res.json()) as { id: string; messages: Message[] }
-        setSessionId(id)
-        setMessages(msgs)
-      }
-    }
-    init()
-  }, [domain, router])
+    fetch(`/api/agent/session?domain=${encodeURIComponent(domain)}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data?.sessionId) setSessionId(data.sessionId)
+      })
+  }, [domain])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -116,13 +114,12 @@ function BuilderPage() {
       </div>
 
       {/* Right: chat */}
-      <div className="w-80 flex flex-col">
+      <div className="w-[480px] flex flex-col">
         <div className="px-4 py-3 border-b border-zinc-200 flex items-center justify-between">
           <span className="text-sm font-medium">Builder</span>
           <a href="/sites" className="text-xs text-zinc-400 hover:text-zinc-700">Sites</a>
         </div>
 
-        {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
           {messages.length === 0 && !streamBuffer && (
             <p className="text-xs text-zinc-400">
@@ -150,7 +147,6 @@ function BuilderPage() {
           <div ref={bottomRef} />
         </div>
 
-        {/* Input */}
         <div className="px-4 py-3 border-t border-zinc-200">
           <form
             onSubmit={(e) => { e.preventDefault(); send() }}

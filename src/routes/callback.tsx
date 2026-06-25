@@ -22,8 +22,15 @@ function CallbackPage() {
         const { session } = await finalizeAuthorization(params)
 
         const did = session.info.sub
-        // Use DID as handle until we resolve the actual handle
-        const handle = did
+        // Resolve DID → handle via PLC directory
+        let handle = did
+        try {
+          const doc = await fetch(`https://plc.directory/${did}`).then((r) => r.json())
+          const aka = (doc.alsoKnownAs ?? []).find((s: string) => s.startsWith('at://'))
+          if (aka) handle = aka.slice('at://'.length)
+        } catch {
+          // fall back to DID if resolution fails
+        }
 
         // Sign in via the better-auth Tangled plugin — sets standard session cookie
         const res = await fetch('/api/auth/sign-in/tangled', {

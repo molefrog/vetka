@@ -1,41 +1,20 @@
-import { createFileRoute, useRouter, Link } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { createFileRoute, redirect, Link } from '@tanstack/react-router'
 import { getAuthSession, getUserSites, getTangledIdentity } from '../../lib/session-fns'
 
-export const Route = createFileRoute('/sites/')({ component: SitesPage })
-
-type Site = {
-  id: string
-  domain: string
-  isTangled: boolean
-  status: string
-}
+export const Route = createFileRoute('/sites/')({
+  beforeLoad: async () => {
+    const session = await getAuthSession()
+    if (!session?.user) throw redirect({ to: '/' })
+  },
+  loader: async () => {
+    const [sites, tangled] = await Promise.all([getUserSites(), getTangledIdentity()])
+    return { sites, setupPath: tangled ? '/setup/tangled' : '/setup/script' } as const
+  },
+  component: SitesPage,
+})
 
 function SitesPage() {
-  const router = useRouter()
-  const [sites, setSites] = useState<Site[]>([])
-  const [setupPath, setSetupPath] = useState<'/setup/tangled' | '/setup/script'>('/setup/script')
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    async function load() {
-      const session = await getAuthSession()
-      if (!session?.user) { router.navigate({ to: '/' }); return }
-      const [s, tangled] = await Promise.all([getUserSites(), getTangledIdentity()])
-      setSites(s as Site[])
-      setSetupPath(tangled ? '/setup/tangled' : '/setup/script')
-      setLoading(false)
-    }
-    load()
-  }, [router])
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-sm text-zinc-400">Loading…</p>
-      </div>
-    )
-  }
+  const { sites, setupPath } = Route.useLoaderData()
 
   return (
     <div className="min-h-screen px-4 py-10">
@@ -62,7 +41,20 @@ function SitesPage() {
                 <div>
                   <div className="text-sm font-medium">{s.domain}</div>
                   <div className="text-xs text-zinc-400 mt-0.5">
-                    {s.isTangled ? 'Tangled' : 'External'} · {s.status}
+                    {s.isTangled && s.repoName ? (
+                      <a
+                        href={`https://tangled.org/${s.domain}/${s.repoName}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-zinc-700 underline underline-offset-2"
+                      >
+                        tangled.org/{s.domain}/{s.repoName}
+                      </a>
+                    ) : (
+                      <a href={`https://${s.domain}`} target="_blank" rel="noopener noreferrer" className="hover:text-zinc-700 underline underline-offset-2">
+                        {s.domain}
+                      </a>
+                    )}
                   </div>
                 </div>
                 <Link

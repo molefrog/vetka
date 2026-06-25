@@ -1,8 +1,14 @@
-import { createFileRoute, useRouter } from '@tanstack/react-router'
-import { useEffect, useRef, useState } from 'react'
+import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
+import { useRef, useState } from 'react'
 import { getAuthSession, createSite } from '../../lib/session-fns'
 
-export const Route = createFileRoute('/setup/script')({ component: SetupScriptPage })
+export const Route = createFileRoute('/setup/script')({
+  beforeLoad: async () => {
+    const session = await getAuthSession()
+    if (!session?.user) throw redirect({ to: '/' })
+  },
+  component: SetupScriptPage,
+})
 
 const SCRIPT_TAG = `<script src="https://vetka.sh/notch.js" async></script>`
 
@@ -16,20 +22,13 @@ function SetupScriptPage() {
   const [copied, setCopied] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  useEffect(() => {
-    getAuthSession().then((s) => {
-      if (!s?.user) router.navigate({ to: '/' })
-    })
-  }, [router])
-
-  // Poll every 5s once we're in check phase
-  useEffect(() => {
-    if (phase !== 'check' || found) return
+  function startPolling(d: string) {
+    if (intervalRef.current) clearInterval(intervalRef.current)
 
     async function check() {
       setChecking(true)
       try {
-        const res = await fetch(`/api/notch/check?domain=${encodeURIComponent(domain)}`)
+        const res = await fetch(`/api/notch/check?domain=${encodeURIComponent(d)}`)
         const { found: ok } = (await res.json()) as { found: boolean }
         if (ok) {
           setFound(true)
@@ -42,8 +41,7 @@ function SetupScriptPage() {
 
     check()
     intervalRef.current = setInterval(check, 5000)
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
-  }, [phase, domain, found])
+  }
 
   async function handleDomainSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -51,6 +49,13 @@ function SetupScriptPage() {
     if (!d) return
     setDomain(d)
     setPhase('check')
+    startPolling(d)
+  }
+
+  function handleBack() {
+    if (intervalRef.current) clearInterval(intervalRef.current)
+    setPhase('enter')
+    setFound(false)
   }
 
   async function handleFinish() {
@@ -153,7 +158,7 @@ function SetupScriptPage() {
         )}
 
         <button
-          onClick={() => { setPhase('enter'); setFound(false) }}
+          onClick={handleBack}
           className="text-sm text-zinc-400 hover:text-zinc-700"
         >
           ← Change domain
