@@ -1,4 +1,11 @@
-import { useState, useEffect, useRef, type CSSProperties } from 'react'
+import {
+  useState,
+  useEffect,
+  useRef,
+  useLayoutEffect,
+  type CSSProperties,
+  type ReactNode,
+} from 'react'
 import { NotchIcon, type IconName } from './NotchIcon'
 import { VetkaMark } from './VetkaMark'
 import { Avatar } from './Avatar'
@@ -15,7 +22,6 @@ const FROST = {
   hoverBg: 'rgba(255,255,255,.14)',
   tipBg: 'rgba(10,10,14,.82)',
   tipInk: '#ffffff',
-  tipChipBg: 'rgba(255,255,255,.18)',
   avatarBg: 'rgba(255,255,255,.12)',
 }
 
@@ -40,15 +46,14 @@ interface Props {
 
 // A trailing slot is either an icon button or the avatar (signed-in account).
 type Slot =
-  | { id: string; kind: 'icon'; key: IconName; label: string; sc: string | null }
+  | { id: string; kind: 'icon'; key: IconName; label: string }
   | { id: string; kind: 'avatar'; label: string }
 
-const i = (key: IconName, label: string, sc: string | null = null): Slot => ({
+const i = (key: IconName, label: string): Slot => ({
   id: key,
   kind: 'icon',
   key,
   label,
-  sc,
 })
 const avatar = (): Slot => ({ id: 'avatar', kind: 'avatar', label: 'Account' })
 
@@ -57,8 +62,8 @@ const MODES: Record<NotchMode, Slot[]> = {
   anonymous: [i('login', 'Log in'), i('follows', 'Following')],
   // 2. Logged in, own site: feed, messages, reactions overlay, avatar.
   owner: [
-    i('feed', 'Updates', 'U'),
-    i('messages', 'Messages', 'M'),
+    i('feed', 'Updates'),
+    i('messages', 'Messages'),
     i('reactions', 'Reactions'),
     avatar(),
   ],
@@ -67,8 +72,8 @@ const MODES: Record<NotchMode, Slot[]> = {
     i('follow', 'Follow'),
     i('react', 'React'),
     i('reactions', 'Reactions'),
-    i('feed', 'Updates', 'U'),
-    i('messages', 'Messages', 'M'),
+    i('feed', 'Updates'),
+    i('messages', 'Messages'),
     avatar(),
   ],
 }
@@ -88,6 +93,56 @@ const BTN: CSSProperties = {
   background: 'transparent',
   padding: 0,
   color: FROST.ink,
+}
+
+const TIP_BASE: CSSProperties = {
+  position: 'absolute',
+  bottom: 'calc(100% + 11px)',
+  background: FROST.tipBg,
+  color: FROST.tipInk,
+  borderRadius: 10,
+  boxShadow: '0 6px 18px rgba(0,0,0,.22)',
+  pointerEvents: 'none',
+  zIndex: 5,
+  whiteSpace: 'nowrap',
+  fontFamily: "'Manrope', system-ui, sans-serif",
+  animation: 'notch-tip-in .12s ease-out',
+}
+
+// A hover tooltip that centers over its icon, then shifts horizontally so it
+// never spills past the viewport edges (the bar sits at the bottom-right).
+function Tip({ children, style }: { children: ReactNode; style?: CSSProperties }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  const [left, setLeft] = useState<number | null>(null)
+
+  useLayoutEffect(() => {
+    const el = ref.current
+    const btn = el?.offsetParent as HTMLElement | null
+    if (!el || !btn) return
+    const tipW = el.offsetWidth
+    const btnRect = btn.getBoundingClientRect()
+    const margin = 8
+    let l = btn.offsetWidth / 2 - tipW / 2 // centered, button-relative
+    const min = margin - btnRect.left
+    const max = window.innerWidth - margin - tipW - btnRect.left
+    l = Math.max(min, Math.min(l, max))
+    setLeft(l)
+  }, [])
+
+  return (
+    <span
+      ref={ref}
+      style={{
+        ...TIP_BASE,
+        ...style,
+        left: left == null ? '50%' : left,
+        transform: left == null ? 'translateX(-50%)' : 'none',
+        visibility: left == null ? 'hidden' : 'visible',
+      }}
+    >
+      {children}
+    </span>
+  )
 }
 
 export function Widget({ apiBase, forceMode }: Props) {
@@ -257,6 +312,7 @@ export function Widget({ apiBase, forceMode }: Props) {
           {slots.map((slot) => {
             const showTip = expanded && tip === slot.id
             const isMessages = slot.kind === 'icon' && slot.key === 'messages'
+            const isAvatar = slot.kind === 'avatar'
             const active = isMessages && openPanel === 'messages'
             return (
               <button
@@ -266,7 +322,9 @@ export function Widget({ apiBase, forceMode }: Props) {
                   isMessages
                     ? () =>
                         setOpenPanel((p) => (p === 'messages' ? null : 'messages'))
-                    : undefined
+                    : isAvatar
+                      ? () => window.open(`${apiBase}/`, '_blank', 'noopener')
+                      : undefined
                 }
                 style={{
                   ...BTN,
@@ -297,49 +355,59 @@ export function Widget({ apiBase, forceMode }: Props) {
                   <NotchIcon name={slot.key} size={25} />
                 )}
 
-                {showTip && (
-                  <span
-                    style={{
-                      position: 'absolute',
-                      bottom: 'calc(100% + 11px)',
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      padding: '6px 10px',
-                      borderRadius: 10,
-                      background: FROST.tipBg,
-                      color: FROST.tipInk,
-                      fontSize: 14,
-                      lineHeight: 1,
-                      fontWeight: 600,
-                      whiteSpace: 'nowrap',
-                      boxShadow: '0 6px 18px rgba(0,0,0,.22)',
-                      pointerEvents: 'none',
-                      zIndex: 5,
-                      fontFamily: "'Manrope', system-ui, sans-serif",
-                      animation: 'notch-tip-in .12s ease-out',
-                    }}
-                  >
-                    <span>{slot.label}</span>
-                    {slot.kind === 'icon' && slot.sc && (
+                {showTip &&
+                  (isAvatar && user ? (
+                    // Account: show which identity is signed in (a user may have
+                    // several sites/accounts, so make the active one explicit).
+                    <Tip
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-start',
+                        gap: 3,
+                        padding: '8px 11px',
+                      }}
+                    >
                       <span
                         style={{
-                          fontSize: 13,
-                          padding: '3px 6px',
-                          borderRadius: 6,
-                          background: FROST.tipChipBg,
-                          color: 'inherit',
-                          fontFamily: "'IBM Plex Mono', monospace",
-                          fontWeight: 500,
+                          fontSize: 10,
+                          fontWeight: 600,
+                          letterSpacing: '.08em',
+                          textTransform: 'uppercase',
+                          color: 'rgba(255,255,255,.5)',
+                          lineHeight: 1,
                         }}
                       >
-                        ⌘{slot.sc}
+                        Signed in
                       </span>
-                    )}
-                  </span>
-                )}
+                      <span style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.1 }}>
+                        {user.name}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 400,
+                          color: 'rgba(255,255,255,.6)',
+                          lineHeight: 1.1,
+                        }}
+                      >
+                        {user.email}
+                      </span>
+                    </Tip>
+                  ) : (
+                    <Tip
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '6px 10px',
+                        fontSize: 14,
+                        lineHeight: 1,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {slot.label}
+                    </Tip>
+                  ))}
               </button>
             )
           })}
