@@ -15,6 +15,7 @@ import { Route as SitesIndexRouteImport } from './routes/sites/index'
 import { Route as SetupTangledRouteImport } from './routes/setup/tangled'
 import { Route as SetupScriptRouteImport } from './routes/setup/script'
 import { Route as NotchTestRouteImport } from './routes/notch/test'
+import { Route as ImpHandleRouteImport } from './routes/imp/$handle'
 import { Route as ApiFeedRouteImport } from './routes/api/feed'
 import { Route as SitesDomainBuilderRouteImport } from './routes/sites/$domain/builder'
 import { Route as ApiOauthClientMetadataRouteImport } from './routes/api/oauth/client-metadata'
@@ -64,6 +65,11 @@ const SetupScriptRoute = SetupScriptRouteImport.update({
 const NotchTestRoute = NotchTestRouteImport.update({
   id: '/notch/test',
   path: '/notch/test',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ImpHandleRoute = ImpHandleRouteImport.update({
+  id: '/imp/$handle',
+  path: '/imp/$handle',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiFeedRoute = ApiFeedRouteImport.update({
@@ -173,6 +179,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/callback': typeof CallbackRoute
   '/api/feed': typeof ApiFeedRoute
+  '/imp/$handle': typeof ImpHandleRoute
   '/notch/test': typeof NotchTestRoute
   '/setup/script': typeof SetupScriptRoute
   '/setup/tangled': typeof SetupTangledRoute
@@ -201,6 +208,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/callback': typeof CallbackRoute
   '/api/feed': typeof ApiFeedRoute
+  '/imp/$handle': typeof ImpHandleRoute
   '/notch/test': typeof NotchTestRoute
   '/setup/script': typeof SetupScriptRoute
   '/setup/tangled': typeof SetupTangledRoute
@@ -230,6 +238,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/callback': typeof CallbackRoute
   '/api/feed': typeof ApiFeedRoute
+  '/imp/$handle': typeof ImpHandleRoute
   '/notch/test': typeof NotchTestRoute
   '/setup/script': typeof SetupScriptRoute
   '/setup/tangled': typeof SetupTangledRoute
@@ -260,6 +269,7 @@ export interface FileRouteTypes {
     | '/'
     | '/callback'
     | '/api/feed'
+    | '/imp/$handle'
     | '/notch/test'
     | '/setup/script'
     | '/setup/tangled'
@@ -288,6 +298,7 @@ export interface FileRouteTypes {
     | '/'
     | '/callback'
     | '/api/feed'
+    | '/imp/$handle'
     | '/notch/test'
     | '/setup/script'
     | '/setup/tangled'
@@ -316,6 +327,7 @@ export interface FileRouteTypes {
     | '/'
     | '/callback'
     | '/api/feed'
+    | '/imp/$handle'
     | '/notch/test'
     | '/setup/script'
     | '/setup/tangled'
@@ -345,6 +357,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CallbackRoute: typeof CallbackRoute
   ApiFeedRoute: typeof ApiFeedRoute
+  ImpHandleRoute: typeof ImpHandleRoute
   NotchTestRoute: typeof NotchTestRoute
   SetupScriptRoute: typeof SetupScriptRoute
   SetupTangledRoute: typeof SetupTangledRoute
@@ -410,6 +423,13 @@ declare module '@tanstack/react-router' {
       path: '/notch/test'
       fullPath: '/notch/test'
       preLoaderRoute: typeof NotchTestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/imp/$handle': {
+      id: '/imp/$handle'
+      path: '/imp/$handle'
+      fullPath: '/imp/$handle'
+      preLoaderRoute: typeof ImpHandleRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/feed': {
@@ -588,6 +608,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CallbackRoute: CallbackRoute,
   ApiFeedRoute: ApiFeedRoute,
+  ImpHandleRoute: ImpHandleRoute,
   NotchTestRoute: NotchTestRoute,
   SetupScriptRoute: SetupScriptRoute,
   SetupTangledRoute: SetupTangledRoute,

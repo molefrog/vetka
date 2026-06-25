@@ -4,7 +4,6 @@ import { auth } from '../../../lib/auth.server'
 import { getAnthropicClient } from '../../../lib/agent.server'
 import { db } from '../../../db'
 import { tangledIdentity } from '../../../db/schema'
-import { pushBundle } from '../../../lib/push.server'
 
 function extractBlockText(content: Array<{ type: string; text?: string }> | null | undefined): string {
   return (content ?? []).filter((b) => b.type === 'text').map((b) => b.text ?? '').join('\n')
@@ -161,6 +160,7 @@ export const Route = createFileRoute('/api/agent/stream')({
                 if (pendingCustomTool?.name === 'push_repo') {
                   send({ type: 'tool_result', tool_use_id: pendingCustomTool.id, output: 'Pushing…', is_error: false })
 
+                  const { pushBundle } = await import('../../../lib/push.server')
                   const bundleB64 = pendingCustomTool.input.bundle_base64 as string
                   const bundleBytes = Buffer.from(bundleB64, 'base64')
                   const result = await pushBundle(bundleBytes, userId)

@@ -87,13 +87,25 @@ export async function getOrCreateSession(userId: string): Promise<{
     resources: resources as any,
   })
 
-  await db.insert(agentSession).values({
-    userId,
-    sessionId: session.id,
-    sshPrivateKey: privateKey,
-    sshPublicKey: publicKey,
-    sshKeyFileId: privFile.id,
-  })
+  await db
+    .insert(agentSession)
+    .values({
+      userId,
+      sessionId: session.id,
+      sshPrivateKey: privateKey,
+      sshPublicKey: publicKey,
+      sshKeyFileId: privFile.id,
+    })
+    .onConflictDoUpdate({
+      target: agentSession.userId,
+      set: {
+        sessionId: session.id,
+        sshPrivateKey: privateKey,
+        sshPublicKey: publicKey,
+        sshKeyFileId: privFile.id,
+        updatedAt: new Date(),
+      },
+    })
 
   return { sessionId: session.id, sshPublicKey: publicKey }
 }

@@ -138,6 +138,19 @@ export const createSite = createServerFn({ method: 'POST' })
   })
 
 // ---------------------------------------------------------------------------
+// Public data — no auth required
+// ---------------------------------------------------------------------------
+
+export const getRecentMembers = createServerFn({ method: 'GET' }).handler(async () => {
+  const { db } = await import('../db')
+  const { site } = await import('../db/schema')
+  const { desc } = await import('drizzle-orm')
+
+  const rows = await db.select({ domain: site.domain }).from(site).orderBy(desc(site.createdAt)).limit(8)
+  return rows.map((r) => r.domain)
+})
+
+// ---------------------------------------------------------------------------
 // Post-login redirect — decides where to send the user after auth
 // ---------------------------------------------------------------------------
 

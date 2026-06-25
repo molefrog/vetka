@@ -3,10 +3,13 @@ import { useEffect, useRef, useState } from 'react'
 import { createAuthorizationUrl } from '@atcute/oauth-browser-client'
 import { ensureOAuthConfigured } from '../lib/oauth'
 import { useSession, signIn, signOut, signUp } from '../lib/auth-client'
-import { getPostLoginDestination } from '../lib/session-fns'
+import { getPostLoginDestination, getRecentMembers } from '../lib/session-fns'
 import { VetkaLogo } from '../components/VetkaLogo'
 
-export const Route = createFileRoute('/')({ component: HomePage })
+export const Route = createFileRoute('/')({
+  loader: () => getRecentMembers(),
+  component: HomePage,
+})
 
 // ---------------------------------------------------------------------------
 // Fake data
@@ -23,7 +26,9 @@ const NOTIFICATIONS = [
   { text: 'anna.tngl.sh started following you', time: '3h ago' },
 ]
 
-const NEW_MEMBERS = ['cat.io', 'evan.xyz', 'igor.me', 'lena.io', 'petya.site']
+function displayDomain(domain: string): string {
+  return domain.replace(/\.vercel\.app$/, '')
+}
 
 // ---------------------------------------------------------------------------
 // Shared bits — soft, Notch-flavoured list primitives
@@ -123,6 +128,7 @@ function FeedItem({ item }: { item: FeedUpdate }) {
 // ---------------------------------------------------------------------------
 
 function HomePage() {
+  const members = Route.useLoaderData()
   const { data: session } = useSession()
   const [showLogin, setShowLogin] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -269,14 +275,17 @@ function HomePage() {
           )}
           <SectionLabel>New members</SectionLabel>
           <div className="px-2 py-1.5">
-            {NEW_MEMBERS.map((domain, i) => (
-              <div
+            {members.map((domain, i) => (
+              <a
                 key={i}
-                className="px-3 py-2 rounded-xl flex items-center gap-3 hover:bg-black/[0.04] cursor-default transition-colors"
+                href={`https://${domain}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-2 rounded-xl flex items-center gap-3 hover:bg-black/[0.04] transition-colors"
               >
                 <Avatar label={domain} />
-                <span className="text-[15px] font-semibold leading-tight">{domain}</span>
-              </div>
+                <span className="text-[15px] font-semibold leading-tight">{displayDomain(domain)}</span>
+              </a>
             ))}
           </div>
         </aside>

@@ -25,7 +25,7 @@ export const Route = createFileRoute('/api/sites/$domain/commits')({
         const owner = siteRow.domain // Tangled handle == site domain
         const repo = siteRow.repoName
 
-        const url = `https://${knot}/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits?sha=main&limit=50`
+        const url = `https://${knot}/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits?limit=50`
 
         try {
           const res = await fetch(url, { headers: { Accept: 'application/json' } })

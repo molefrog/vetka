@@ -2,8 +2,6 @@ import { createFileRoute } from '@tanstack/react-router'
 import { eq } from 'drizzle-orm'
 import { db } from '../../../db'
 import { agentSession } from '../../../db/schema'
-import { pushBundle } from '../../../lib/push.server'
-
 export const Route = createFileRoute('/api/agent/push')({
   server: {
     handlers: {
@@ -30,6 +28,7 @@ export const Route = createFileRoute('/api/agent/push')({
           return Response.json({ error: 'No bundle provided' }, { status: 400 })
         }
 
+        const { pushBundle } = await import('../../../lib/push.server')
         const result = await pushBundle(Buffer.from(await bundleFile.arrayBuffer()), sess.userId)
         return Response.json(result, { status: 'error' in result ? 500 : 200 })
       },
