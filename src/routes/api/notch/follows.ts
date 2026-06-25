@@ -9,9 +9,14 @@ import {
   siteProfiles,
 } from '../../../lib/notch-social'
 
-// GET    /api/notch/follows?of=<siteId>  — accounts that <of> follows
-// POST   /api/notch/follows  { followeeId }   — viewer follows a site
-// DELETE /api/notch/follows?followeeId=<id>    — viewer unfollows a site
+// GET    /api/notch/follows?of=<siteId>          — accounts that <of> follows
+// POST   /api/notch/follows  { followeeId, on }   — viewer follows (on!==false) or
+//                                                   unfollows (on===false) a site
+// DELETE /api/notch/follows?followeeId=<id>        — legacy unfollow (kept for compat)
+//
+// POST is sent cross-site as a CORS-"simple" request (text/plain body) so it
+// needs no preflight — see notch/src/follows-data.ts. It carries both follow and
+// unfollow because DELETE is never a simple request and its preflight is blocked.
 export const Route = createFileRoute('/api/notch/follows')({
   server: {
     handlers: {
@@ -60,11 +65,24 @@ export const Route = createFileRoute('/api/notch/follows')({
         if (!viewer) return corsJson(request, { error: 'unauthorized' }, { status: 401 })
         if (!viewer.site) return corsJson(request, { needsSite: true }, { status: 409 })
 
-        const { followeeId } = (await request.json().catch(() => ({}))) as {
+        // Body arrives as text/plain (simple request) but is JSON — request.json()
+        // parses it regardless of Content-Type.
+        const { followeeId, on } = (await request.json().catch(() => ({}))) as {
           followeeId?: string
+          on?: boolean
         }
         if (!followeeId || followeeId === viewer.site.id) {
           return corsJson(request, { error: 'bad_request' }, { status: 400 })
+        }
+
+        // on === false → unfollow; otherwise follow (default).
+        if (on === false) {
+          await db
+            .delete(follow)
+            .where(
+              and(eq(follow.followerId, viewer.site.id), eq(follow.followeeId, followeeId)),
+            )
+          return corsJson(request, { following: false })
         }
 
         await db

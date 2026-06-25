@@ -29,25 +29,26 @@ export async function loadFollows(apiBase: string, of?: string): Promise<Follow[
 }
 
 // Follow (on=true) or unfollow (on=false) a site. Returns whether it persisted.
+//
+// The widget runs cross-origin on third-party host pages, so this is a
+// credentialed cross-site request. We deliberately keep it a CORS "simple"
+// request — POST with a safelisted `text/plain` Content-Type and no custom
+// headers — so the browser sends it WITHOUT a preflight. (Preflight OPTIONS is
+// answered by a generic framework handler that omits Access-Control-Allow-Origin/
+// -Credentials, which would otherwise block any application/json POST or DELETE.)
+// Follow and unfollow are both POSTs (DELETE is never "simple"); `on` picks which.
 export async function setFollow(
   apiBase: string,
   followeeId: string,
   on: boolean,
 ): Promise<boolean> {
   try {
-    if (on) {
-      const r = await fetch(`${apiBase}/api/notch/follows`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ followeeId }),
-      })
-      return r.ok
-    }
-    const r = await fetch(
-      `${apiBase}/api/notch/follows?followeeId=${encodeURIComponent(followeeId)}`,
-      { method: 'DELETE', credentials: 'include' },
-    )
+    const r = await fetch(`${apiBase}/api/notch/follows`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ followeeId, on }),
+    })
     return r.ok
   } catch {
     return false
