@@ -10,6 +10,20 @@ export const Route = createRootRoute({
     ],
     links: [
       { rel: 'stylesheet', href: appCss },
+      {
+        rel: 'preload',
+        href: '/fonts/Anthony.woff2',
+        as: 'font',
+        type: 'font/woff2',
+        crossOrigin: 'anonymous',
+      },
+      {
+        rel: 'preload',
+        href: '/fonts/OverusedGrotesk-VF.woff2',
+        as: 'font',
+        type: 'font/woff2',
+        crossOrigin: 'anonymous',
+      },
       { rel: 'icon', type: 'image/svg+xml', href: '/vetka-logo.svg' },
       { rel: 'manifest', href: '/manifest.json' },
     ],

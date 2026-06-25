@@ -1,6 +1,41 @@
 
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+   Brand webfonts (self-hosted, OFL)
+   - Anthony (Velvetyne): logo wordmark + brand headings — single weight 400
+   - Overused Grotesk (Uncut.wtf): body / UI — variable, weights 100–900
+--------------------------------------------------------------------------- */
+@font-face {
+  font-family: "Anthony";
+  src: url("/fonts/Anthony.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Overused Grotesk";
+  src: url("/fonts/OverusedGrotesk-VF.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: "Overused Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Anthony", "Overused Grotesk", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Overused Grotesk is the default body/UI face */
+body {
+  font-family: var(--font-sans);
+}
+
+/* Anthony is single-weight — don't let the browser synthesize a fake bold */
+.font-display {
+  font-synthesis-weight: none;
+}
+
 * {
   box-sizing: border-box;
 }

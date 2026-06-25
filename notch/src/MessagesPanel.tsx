@@ -154,7 +154,7 @@ export function MessagesPanel({ mode, owner, apiBase, onClose }: Props) {
                   seed={owner.seed}
                   src={owner.src}
                   subtitle="Start a conversation"
-                  subtitleColor={PANEL.accent}
+                  subtitleColor={PANEL.accentText}
                   onClick={openOwner}
                 />
                 <div
@@ -294,7 +294,8 @@ function Thread({
         </HeaderBtn>
       </div>
 
-      {/* Bubbles */}
+      {/* Bubbles — recessed darker canvas so the conversation reads as its own
+          surface within the frost shell. */}
       <div
         style={{
           flex: 1,
@@ -304,6 +305,7 @@ function Thread({
           display: 'flex',
           flexDirection: 'column',
           gap: 8,
+          background: PANEL.chatBg,
         }}
       >
         {messages.length === 0 ? (

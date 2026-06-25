@@ -61,7 +61,7 @@ function HomePage() {
     <div className="min-h-screen bg-white text-black text-sm">
       {/* Navbar */}
       <nav className="border-b border-black px-4 h-9 flex items-center shrink-0">
-        <span className="flex items-center gap-1.5">
+        <span className="font-display flex items-center gap-1.5">
           <VetkaLogo size={16} />
           vetka
         </span>

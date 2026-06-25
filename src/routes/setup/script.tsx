@@ -79,7 +79,7 @@ function SetupScriptPage() {
       <div className="min-h-screen flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-sm space-y-6">
           <div>
-            <h1 className="text-xl font-semibold">Connect your website</h1>
+            <h1 className="font-display text-xl font-semibold">Connect your website</h1>
             <p className="mt-1 text-sm text-zinc-500">
               Enter your website domain to get a script to embed.
             </p>
@@ -116,7 +116,7 @@ function SetupScriptPage() {
     <div className="min-h-screen flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm space-y-6">
         <div>
-          <h1 className="text-xl font-semibold">Add the script to {domain}</h1>
+          <h1 className="font-display text-xl font-semibold">Add the script to {domain}</h1>
           <p className="mt-1 text-sm text-zinc-500">
             Paste this tag in the <code className="bg-zinc-100 px-1 rounded">&lt;head&gt;</code> or
             at the end of <code className="bg-zinc-100 px-1 rounded">&lt;body&gt;</code>.

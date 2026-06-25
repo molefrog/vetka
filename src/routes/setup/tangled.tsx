@@ -66,7 +66,7 @@ function SetupTangledPage() {
     <div className="min-h-screen flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md space-y-6">
         <div>
-          <h1 className="text-xl font-semibold">Choose your website repo</h1>
+          <h1 className="font-display text-xl font-semibold">Choose your website repo</h1>
           <p className="mt-1 text-sm text-zinc-500">
             {domain ? <>Your site will be at <strong>{domain}</strong></> : 'Select the repo for your site.'}
           </p>

@@ -21,7 +21,7 @@ function SitesPage() {
     <div className="min-h-screen px-4 py-10">
       <div className="max-w-lg mx-auto space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="flex items-center gap-2 text-lg font-semibold">
+          <h1 className="font-display flex items-center gap-2 text-lg font-semibold">
             <VetkaLogo size={20} />
             Your sites
           </h1>

@@ -115,7 +115,7 @@ const TIP_BASE: CSSProperties = {
   pointerEvents: 'none',
   zIndex: 5,
   whiteSpace: 'nowrap',
-  fontFamily: "'Manrope', system-ui, sans-serif",
+  fontFamily: "'Overused Grotesk', system-ui, sans-serif",
   animation: 'notch-tip-in .12s ease-out',
 }
 
@@ -266,7 +266,7 @@ export function Widget({ apiBase, forceMode }: Props) {
         bottom: 20,
         right: 20,
         zIndex: 2147483647,
-        fontFamily: "'Manrope', system-ui, -apple-system, sans-serif",
+        fontFamily: "'Overused Grotesk', system-ui, -apple-system, sans-serif",
         display: 'flex',
         alignItems: 'flex-end',
       }}

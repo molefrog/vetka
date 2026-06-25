@@ -5,12 +5,13 @@ import { Avatar } from './Avatar'
 // Both panels import from here so they stay visually consistent and can be
 // tweaked in one place.
 
-// Frost dark-glass — the same material as the notch bar (see FROST in Widget.tsx
-// and "Frost — dark glass" in local-drafts/README.md). The panel carries far more
-// text than the icon-only bar, so its tint is a touch deeper (.72 vs the bar's .42)
-// to keep white type legible over a white host page — same glass, more body.
+// Frost dark-glass — the exact material as the notch bar (see FROST in Widget.tsx
+// and "Frost — dark glass" in local-drafts/README.md). The panel shell shares the
+// bar's translucent surface so the two read as one piece of glass; legibility for
+// dense text is handled locally by deepening the chat canvas (chatBg), not by
+// darkening the whole shell.
 export const PANEL = {
-  surface: 'rgba(18,18,24,.72)',
+  surface: 'rgba(20,20,26,.42)',
   border: '1px solid rgba(255,255,255,.16)',
   // Drop shadow grounds the floating glass; the inset top line is the bright
   // rim highlight that reads as a glass edge catching light.
@@ -23,11 +24,19 @@ export const PANEL = {
   // full-width rows use a gentler wash so they don't glare.
   btnHover: 'rgba(255,255,255,.14)',
   divider: 'rgba(255,255,255,.08)',
+  // A darker recessed canvas behind the message bubbles. The frost shell stays
+  // light; this inner layer deepens just the chat so incoming bubbles and text
+  // hold contrast over a busy host page.
+  chatBg: 'rgba(8,8,12,.32)',
   accent: 'oklch(0.7 0.085 152)',
+  // Brighter, higher-chroma green for accent *text* — the muted `accent` is for
+  // fills (bubbles, Follow button) where dark `onAccent` sits on top; as text on
+  // the frost it washes out, so call-to-action labels use this instead.
+  accentText: 'oklch(0.86 0.15 158)',
   onAccent: '#0c1f14',
   unread: '#3b82f6',
   badge: '#ef4444',
-  bubbleIn: 'rgba(255,255,255,.08)',
+  bubbleIn: 'rgba(255,255,255,.10)',
 }
 
 export const panelContainerStyle: CSSProperties = {
@@ -46,7 +55,7 @@ export const panelContainerStyle: CSSProperties = {
   backdropFilter: PANEL.blur,
   WebkitBackdropFilter: PANEL.blur,
   color: PANEL.ink,
-  fontFamily: "'Manrope', system-ui, -apple-system, sans-serif",
+  fontFamily: "'Overused Grotesk', system-ui, -apple-system, sans-serif",
   animation: 'notch-panel-in .16s ease-out',
   transformOrigin: 'bottom right',
   zIndex: 10,
