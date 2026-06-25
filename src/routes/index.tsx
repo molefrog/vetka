@@ -60,10 +60,10 @@ function HomePage() {
   return (
     <div className="min-h-screen bg-white text-black text-sm">
       {/* Navbar */}
-      <nav className="border-b border-black px-4 h-9 flex items-center shrink-0">
-        <span className="font-display flex items-center gap-1.5">
-          <VetkaLogo size={16} />
-          vetka
+      <nav className="border-b border-black px-4 h-16 flex items-center shrink-0">
+        <span className="font-display flex items-center gap-2 text-[40px] leading-none">
+          <VetkaLogo variant="lean" size={40} />
+          Vetka
         </span>
         <div className="ml-auto flex items-center gap-5">
           {user ? (
@@ -120,7 +120,7 @@ function HomePage() {
         </div>
       </nav>
 
-      <div className="flex" style={{ minHeight: 'calc(100vh - 37px)' }}>
+      <div className="flex" style={{ minHeight: 'calc(100vh - 65px)' }}>
         {/* Feed */}
         <main className="flex-1 border-r border-black">
           <div className="border-b border-black px-4 h-8 flex items-center text-xs text-zinc-500">
