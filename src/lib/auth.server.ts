@@ -92,11 +92,14 @@ export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL ?? process.env.VITE_APP_URL,
   secret: process.env.BETTER_AUTH_SECRET,
   // Notch embeds on third-party sites and calls /api/notch/* with credentials.
-  // SameSite=None;Secure is required for cookies to be sent cross-site.
-  // Only skip it for plain http localhost where Secure cookies don't work.
+  // SameSite=None;Secure is required for cookies to be sent cross-site, and
+  // Partitioned (CHIPS) is required for them to survive third-party-cookie
+  // blocking (Chrome's phase-out, Safari ITP) — without it the widget falls back
+  // to anonymous on those browsers. Only skip it for plain http localhost where
+  // Secure cookies don't work.
   advanced: isLocalDev
     ? { disableCSRFCheck: true }
-    : { defaultCookieAttributes: { sameSite: 'none', secure: true } },
+    : { defaultCookieAttributes: { sameSite: 'none', secure: true, partitioned: true } },
   database: drizzleAdapter(db, {
     provider: 'pg',
     schema: {

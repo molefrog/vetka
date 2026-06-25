@@ -64,6 +64,12 @@ export async function loadThread(apiBase: string, peerId: string): Promise<ChatM
 }
 
 // Send a message to a peer; returns the created message or null on failure.
+//
+// Cross-origin from third-party host pages, so this is kept a CORS "simple"
+// request — POST with a safelisted `text/plain` Content-Type and no custom
+// headers — so the browser sends it WITHOUT a preflight. (The OPTIONS preflight
+// is answered by a generic framework handler that omits the credentialed CORS
+// headers, which would otherwise block an application/json POST.) Body is JSON.
 export async function sendMessage(
   apiBase: string,
   peerId: string,
@@ -75,7 +81,7 @@ export async function sendMessage(
       {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ text }),
       },
     )

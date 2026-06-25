@@ -77,7 +77,7 @@ function FeedSnapshot({ domain }: { domain: string }) {
       />
       {state !== 'ok' && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-zinc-400">
-          <VetkaLogo variant="lean" size={22} className="opacity-30" />
+          <VetkaLogo size={22} className="opacity-30" />
           <span className="text-xs">
             {state === 'loading' ? 'Loading snapshot…' : 'Snapshot coming soon'}
           </span>
@@ -185,7 +185,7 @@ function HomePage() {
       {/* Navbar */}
       <nav className="border-b border-black/[0.08] px-5 h-16 flex items-center shrink-0">
         <span className="font-display flex items-center gap-2 text-[40px] leading-none">
-          <VetkaLogo variant="lean" size={40} />
+          <VetkaLogo size={40} />
           Vetka
         </span>
         <div className="ml-auto flex items-center gap-5">
