@@ -1,4 +1,9 @@
-import { pgTable, text, timestamp, boolean, uuid, uniqueIndex } from 'drizzle-orm/pg-core'
+import { pgTable, text, timestamp, boolean, uuid, uniqueIndex, integer, index, customType } from 'drizzle-orm/pg-core'
+
+// PostgreSQL bytea for raw binary blobs (images, etc.)
+const bytea = customType<{ data: Buffer }>({
+  dataType() { return 'bytea' },
+})
 
 // ---------------------------------------------------------------------------
 // better-auth core tables (email + Google)
@@ -134,5 +139,49 @@ export const message = pgTable('message', {
   body: text('body').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   readAt: timestamp('read_at'),
+})
+
+// ---------------------------------------------------------------------------
+// Site images — visual thumbnails stored as binary blobs.
+// Format: WebP, exactly 800×600 (4:3). Many rows per site; the most recent
+// row is the "current" thumbnail. Query: WHERE site_id = ? ORDER BY created_at DESC LIMIT 1
+// ---------------------------------------------------------------------------
+
+export const siteImage = pgTable(
+  'site_image',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    siteId: uuid('site_id')
+      .notNull()
+      .references(() => site.id, { onDelete: 'cascade' }),
+    data: bytea('data').notNull(),
+    mimeType: text('mime_type').notNull().default('image/webp'),
+    width: integer('width').notNull(),
+    height: integer('height').notNull(),
+    byteSize: integer('byte_size').notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('site_image_site_created').on(t.siteId, t.createdAt)],
+)
+
+// ---------------------------------------------------------------------------
+// Site snapshots — one row per agent-triggered build/commit/push.
+// Screenshot capture is intentionally left as a stub (imageId nullable).
+// ---------------------------------------------------------------------------
+
+export const siteSnapshot = pgTable('site_snapshot', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  siteId: uuid('site_id')
+    .notNull()
+    .references(() => site.id, { onDelete: 'cascade' }),
+  imageId: uuid('image_id').references(() => siteImage.id, { onDelete: 'set null' }),
+  commitSha: text('commit_sha'),
+  commitMessage: text('commit_message'),
+  branch: text('branch').notNull().default('main'),
+  // 'pending' | 'building' | 'success' | 'failed'
+  status: text('status').notNull().default('pending'),
+  // 'agent' | 'manual'
+  triggeredBy: text('triggered_by').notNull().default('agent'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 

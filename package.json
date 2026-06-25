@@ -56,10 +56,12 @@
     "@types/pg": "^8.20.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "@types/sharp": "^0.31.1",
     "@vitejs/plugin-react": "^6.0.1",
     "bunup": "^0.16.32",
     "drizzle-kit": "^0.31.10",
     "jsdom": "^28.1.0",
+    "sharp": "^0.35.2",
     "typescript": "^6.0.2",
     "vite": "^8.0.0",
     "vitest": "^4.1.5"
