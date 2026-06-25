@@ -149,3 +149,19 @@ The widget runs on third-party sites and calls `vetka.sh/api/notch/*` with `cred
 - Schema changes: edit `src/db/schema.ts` → `bunx drizzle-kit push` (needs interactive TTY — run in terminal with `!`)
 - Nitro is excluded from dev (`vite.config.ts`) to avoid breaking TanStack's dev middleware
 - Same Aiven PostgreSQL instance used for dev and prod (hackathon)
+
+## One-off DB scripts
+
+Use Drizzle directly from a `scripts/*.ts` file and run with `bun --env-file=.env scripts/your-script.ts`:
+
+```typescript
+import { db } from '../src/db'
+import { agentSession } from '../src/db/schema'
+import { eq } from 'drizzle-orm'
+
+const deleted = await db.delete(agentSession).where(eq(agentSession.userId, 'abc')).returning()
+console.log(deleted)
+process.exit(0)
+```
+
+See `scripts/clear-session.ts` for a working example.

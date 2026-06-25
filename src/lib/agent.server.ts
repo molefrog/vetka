@@ -3,6 +3,8 @@ import { db } from '../db'
 import { agentSession } from '../db/schema'
 import { eq } from 'drizzle-orm'
 
+// Agent config lives in the Anthropic console (agent_019VzGQn8ggkHmQxrDrHcJjU, version 5+).
+// To update the system prompt, edit and re-run scripts/update-agent.mjs.
 const AGENT_ID = 'agent_019VzGQn8ggkHmQxrDrHcJjU'
 const ENV_ID = 'env_016Mr6pEcERwBFoo1Jmzv8Yu'
 
@@ -28,7 +30,6 @@ export async function getOrCreateSession(userId: string): Promise<{
   }
 
   const client = getAnthropicClient()
-
   const session = await client.beta.sessions.create({
     agent: AGENT_ID,
     environment_id: ENV_ID,
