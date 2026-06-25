@@ -49,7 +49,7 @@ export const Route = createFileRoute('/api/agent/push')({
 
         const bundleBytes = await bundleFile.arrayBuffer()
 
-        const sshUrl = `git@${identity.selectedRepoKnot}:${identity.did}/${identity.selectedRepoName}.git`
+        const sshUrl = `git@tangled.org:${identity.handle}/${identity.selectedRepoName}.git`
 
         const tmpDir = mkdtempSync(join(tmpdir(), 'vetka-push-'))
         const keyPath = join(tmpDir, 'id_vetka')

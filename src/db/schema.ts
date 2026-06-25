@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, uuid, real, uniqueIndex, index } from 'drizzle-orm/pg-core'
+import { pgTable, text, timestamp, boolean, uuid, uniqueIndex } from 'drizzle-orm/pg-core'
 
 // ---------------------------------------------------------------------------
 // better-auth core tables (email + Google)
@@ -136,26 +136,3 @@ export const message = pgTable('message', {
   readAt: timestamp('read_at'),
 })
 
-// ---------------------------------------------------------------------------
-// Page reactions — emoji "stamps" pinned to a URL (FigJam-style overlay).
-// Additive: the rest of the social layer (follows, DMs) reuses `follow` and
-// `message`; only reactions are a net-new entity with no existing table.
-// ---------------------------------------------------------------------------
-
-export const reaction = pgTable(
-  'reaction',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    pageUrl: text('page_url').notNull(), // full URL/path the stamp sits on
-    siteId: uuid('site_id').references(() => site.id, { onDelete: 'cascade' }), // host site if registered
-    authorUserId: text('author_user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    emoji: text('emoji').notNull(),
-    x: real('x').notNull(), // 0..100 % position
-    y: real('y').notNull(),
-    body: text('body'), // optional comment with the stamp
-    createdAt: timestamp('created_at').notNull().defaultNow(),
-  },
-  (t) => [index('reaction_page').on(t.pageUrl)],
-)

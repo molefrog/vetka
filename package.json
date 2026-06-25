@@ -22,6 +22,7 @@
     "@atcute/lexicons": "^2.0.1",
     "@atcute/oauth-browser-client": "^4.0.0",
     "@atcute/tangled": "^2.0.8",
+    "@instantdb/react": "^1.0.49",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-devtools": "latest",
     "@tanstack/react-router": "latest",
