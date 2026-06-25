@@ -28,6 +28,7 @@ import { Route as ApiNotchCheckRouteImport } from './routes/api/notch/check'
 import { Route as ApiAgentUploadRouteImport } from './routes/api/agent/upload'
 import { Route as ApiAgentStreamRouteImport } from './routes/api/agent/stream'
 import { Route as ApiAgentSessionRouteImport } from './routes/api/agent/session'
+import { Route as ApiAgentPushRouteImport } from './routes/api/agent/push'
 import { Route as ApiNotchConversationsPeerIdRouteImport } from './routes/api/notch/conversations/$peerId'
 import { Route as ApiNotchConversationsPeerIdMessagesRouteImport } from './routes/api/notch/conversations/$peerId/messages'
 
@@ -126,6 +127,11 @@ const ApiAgentSessionRoute = ApiAgentSessionRouteImport.update({
   path: '/api/agent/session',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAgentPushRoute = ApiAgentPushRouteImport.update({
+  id: '/api/agent/push',
+  path: '/api/agent/push',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiNotchConversationsPeerIdRoute =
   ApiNotchConversationsPeerIdRouteImport.update({
     id: '/$peerId',
@@ -146,6 +152,7 @@ export interface FileRoutesByFullPath {
   '/setup/script': typeof SetupScriptRoute
   '/setup/tangled': typeof SetupTangledRoute
   '/sites/': typeof SitesIndexRoute
+  '/api/agent/push': typeof ApiAgentPushRoute
   '/api/agent/session': typeof ApiAgentSessionRoute
   '/api/agent/stream': typeof ApiAgentStreamRoute
   '/api/agent/upload': typeof ApiAgentUploadRoute
@@ -169,6 +176,7 @@ export interface FileRoutesByTo {
   '/setup/script': typeof SetupScriptRoute
   '/setup/tangled': typeof SetupTangledRoute
   '/sites': typeof SitesIndexRoute
+  '/api/agent/push': typeof ApiAgentPushRoute
   '/api/agent/session': typeof ApiAgentSessionRoute
   '/api/agent/stream': typeof ApiAgentStreamRoute
   '/api/agent/upload': typeof ApiAgentUploadRoute
@@ -193,6 +201,7 @@ export interface FileRoutesById {
   '/setup/script': typeof SetupScriptRoute
   '/setup/tangled': typeof SetupTangledRoute
   '/sites/': typeof SitesIndexRoute
+  '/api/agent/push': typeof ApiAgentPushRoute
   '/api/agent/session': typeof ApiAgentSessionRoute
   '/api/agent/stream': typeof ApiAgentStreamRoute
   '/api/agent/upload': typeof ApiAgentUploadRoute
@@ -218,6 +227,7 @@ export interface FileRouteTypes {
     | '/setup/script'
     | '/setup/tangled'
     | '/sites/'
+    | '/api/agent/push'
     | '/api/agent/session'
     | '/api/agent/stream'
     | '/api/agent/upload'
@@ -241,6 +251,7 @@ export interface FileRouteTypes {
     | '/setup/script'
     | '/setup/tangled'
     | '/sites'
+    | '/api/agent/push'
     | '/api/agent/session'
     | '/api/agent/stream'
     | '/api/agent/upload'
@@ -264,6 +275,7 @@ export interface FileRouteTypes {
     | '/setup/script'
     | '/setup/tangled'
     | '/sites/'
+    | '/api/agent/push'
     | '/api/agent/session'
     | '/api/agent/stream'
     | '/api/agent/upload'
@@ -288,6 +300,7 @@ export interface RootRouteChildren {
   SetupScriptRoute: typeof SetupScriptRoute
   SetupTangledRoute: typeof SetupTangledRoute
   SitesIndexRoute: typeof SitesIndexRoute
+  ApiAgentPushRoute: typeof ApiAgentPushRoute
   ApiAgentSessionRoute: typeof ApiAgentSessionRoute
   ApiAgentStreamRoute: typeof ApiAgentStreamRoute
   ApiAgentUploadRoute: typeof ApiAgentUploadRoute
@@ -438,6 +451,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAgentSessionRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/agent/push': {
+      id: '/api/agent/push'
+      path: '/api/agent/push'
+      fullPath: '/api/agent/push'
+      preLoaderRoute: typeof ApiAgentPushRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/notch/conversations/$peerId': {
       id: '/api/notch/conversations/$peerId'
       path: '/$peerId'
@@ -491,6 +511,7 @@ const rootRouteChildren: RootRouteChildren = {
   SetupScriptRoute: SetupScriptRoute,
   SetupTangledRoute: SetupTangledRoute,
   SitesIndexRoute: SitesIndexRoute,
+  ApiAgentPushRoute: ApiAgentPushRoute,
   ApiAgentSessionRoute: ApiAgentSessionRoute,
   ApiAgentStreamRoute: ApiAgentStreamRoute,
   ApiAgentUploadRoute: ApiAgentUploadRoute,

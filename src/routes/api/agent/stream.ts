@@ -42,19 +42,26 @@ export const Route = createFileRoute('/api/agent/stream')({
 
         const identity = identityRows[0]
 
+        const baseUrl = new URL(request.url).origin
+
         let contextBlock = ''
         if (identity?.selectedRepoName && identity?.selectedRepoKnot) {
           const httpsUrl = `https://tangled.org/${identity.handle}/${identity.selectedRepoName}`
-          const sshUrl = `git@tangled.org:${identity.handle}/${identity.selectedRepoName}.git`
           const prodUrl = `https://${identity.handle}`
+          const pushRelay = `${baseUrl}/api/agent/push`
           contextBlock =
             `<vetka_context>\n` +
             `repo_https: ${httpsUrl}\n` +
-            `repo_ssh: ${sshUrl}\n` +
             `prod: ${prodUrl}\n` +
             `Clone: git clone ${httpsUrl}\n` +
-            `Push via SSH (key at ~/.ssh/id_vetka, copied there by setup.sh):\n` +
-            `  GIT_SSH_COMMAND='ssh -4 -i ~/.ssh/id_vetka -o StrictHostKeyChecking=no -o ConnectTimeout=15' git push\n` +
+            `\n` +
+            `To push commits, use the Vetka push relay (direct SSH is blocked in this sandbox):\n` +
+            `  git bundle create /tmp/push.bundle origin/main..HEAD\n` +
+            `  curl -sS -X POST ${pushRelay} \\\n` +
+            `    -H "Authorization: Bearer ${sessionId}" \\\n` +
+            `    -F bundle=@/tmp/push.bundle\n` +
+            `  # Returns JSON: {"hash":"<commit-hash>","url":"${prodUrl}"}\n` +
+            `  # After a successful push, run: git fetch origin && git reset --hard origin/main\n` +
             `</vetka_context>\n`
         }
 

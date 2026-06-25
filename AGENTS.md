@@ -148,7 +148,7 @@ The widget runs on third-party sites and calls `vetka.sh/api/notch/*` with `cred
 ## Dev
 
 - App: `bun run dev` (access via tailscale URL for Tangled OAuth)
-- Notch widget: `cd notch && bun run dev`
+- Notch widget: `bun run dev:notch` — **must run in a separate terminal**; watches `notch/src/` and rebuilds `public/notch.js` on every change. Without this, the widget served at `/notch.js` is a stale build.
 - Schema changes: edit `src/db/schema.ts` → `bunx drizzle-kit push` (needs interactive TTY — run in terminal with `!`)
 - Nitro is excluded from dev (`vite.config.ts`) to avoid breaking TanStack's dev middleware
 - Same Aiven PostgreSQL instance used for dev and prod (hackathon)

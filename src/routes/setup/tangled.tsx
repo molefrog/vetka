@@ -1,7 +1,7 @@
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { getAuthSession, getTangledIdentity, createSite, saveSelectedRepo } from '../../lib/session-fns'
-import { listRepos, type Repo } from '../../lib/tangled'
+import { listRepos, listSshKeys, addSshKey, type Repo } from '../../lib/tangled'
 import { ensureOAuthConfigured } from '../../lib/oauth'
 import { cn } from '../../lib/cn'
 
@@ -43,6 +43,24 @@ function SetupTangledPage() {
     setSaving(true)
     setError(null)
     try {
+      // Register the agent's SSH public key with Tangled so the push relay can authenticate.
+      // Non-fatal — user can add the key manually if this fails.
+      try {
+        const sessionRes = await fetch('/api/agent/session')
+        if (sessionRes.ok) {
+          const { sshPublicKey } = await sessionRes.json() as { sshPublicKey: string | null }
+          if (sshPublicKey) {
+            const existingKeys = await listSshKeys()
+            const alreadyAdded = existingKeys.some((k) => k.key.trim() === sshPublicKey.trim())
+            if (!alreadyAdded) {
+              await addSshKey('vetka-agent', sshPublicKey)
+            }
+          }
+        }
+      } catch {
+        // ignore — push relay will fail gracefully and show an error
+      }
+
       const knot = selected.knot ?? 'tngl.sh'
       await saveSelectedRepo({ data: { uri: selected.uri, name: selected.name, knot } })
       await createSite({

@@ -57,7 +57,7 @@ for (const e of events) {
     const inp = JSON.stringify(e.input ?? {}).slice(0, 80)
     console.log(`${tag}  ${name}(${inp})`)
   } else if (e.type === 'agent.tool_result' || e.type === 'agent.mcp_tool_result') {
-    const out = ((e.content ?? []).find((b: any) => b.type === 'text')?.text ?? '').slice(0, 80)
+    const out = ((e.content ?? []).find((b: any) => b.type === 'text')?.text ?? '').slice(0, 300)
     const err = e.is_error ? ' ERROR' : ''
     console.log(`${tag}${err}  "${out}"`)
   } else if (e.type === 'agent.thinking') {

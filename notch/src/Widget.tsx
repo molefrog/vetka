@@ -36,6 +36,8 @@ interface User {
   name: string
   email: string
   image?: string | null
+  handle?: string | null
+  domain?: string | null
 }
 
 // Resolved context for the site the widget is embedded on (GET /api/notch/site).
@@ -426,18 +428,20 @@ export function Widget({ apiBase, forceMode }: Props) {
                         Signed in
                       </span>
                       <span style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.1 }}>
-                        {user.name}
+                        {user.handle ?? user.domain ?? user.name}
                       </span>
-                      <span
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 400,
-                          color: 'rgba(255,255,255,.6)',
-                          lineHeight: 1.1,
-                        }}
-                      >
-                        {user.email}
-                      </span>
+                      {(user.domain || user.handle) && (
+                        <span
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 400,
+                            color: 'rgba(255,255,255,.6)',
+                            lineHeight: 1.1,
+                          }}
+                        >
+                          {user.domain ?? user.handle}
+                        </span>
+                      )}
                     </Tip>
                   ) : (
                     <Tip
