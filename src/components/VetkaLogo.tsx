@@ -10,10 +10,12 @@ export function VetkaLogo({
   size = 20,
   className,
   title = 'Vetka',
+  variant: _variant = 'lean',
 }: {
   size?: number
   className?: string
   title?: string
+  variant?: 'lean' | 'circle'
 }) {
   return (
     <svg

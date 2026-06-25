@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { getAuthSession } from '../../../lib/session-fns'
+import { getBuilderSiteData } from '../../../lib/builder-fns'
 import { useSession } from '../../../lib/auth-client'
 import { VetkaLogo } from '../../../components/VetkaLogo'
 
@@ -12,20 +13,7 @@ export const Route = createFileRoute('/sites/$domain/builder')({
     if (!session?.user) throw redirect({ to: '/' })
   },
   loader: async ({ params }) => {
-    const { db } = await import('../../../db')
-    const { site } = await import('../../../db/schema')
-    const { eq } = await import('drizzle-orm')
-    const [siteRow] = await db
-      .select({
-        isTangled: site.isTangled,
-        repoName: site.repoName,
-        repoKnot: site.repoKnot,
-        status: site.status,
-      })
-      .from(site)
-      .where(eq(site.domain, params.domain))
-      .limit(1)
-    return { site: siteRow ?? null }
+    return { site: await getBuilderSiteData({ data: params.domain }) }
   },
   component: BuilderPage,
 })
