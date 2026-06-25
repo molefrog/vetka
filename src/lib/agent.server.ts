@@ -43,7 +43,7 @@ function sshStr(data: Buffer | string): Buffer {
 // Generate an Ed25519 SSH keypair.
 // Produces privateKey in OpenSSH format (-----BEGIN OPENSSH PRIVATE KEY-----)
 // and publicKey in authorized_keys format (ssh-ed25519 <base64> vetka-agent).
-function generateSSHKeyPair(): { privateKey: string; publicKey: string } {
+export function generateSSHKeyPair(): { privateKey: string; publicKey: string } {
   const { privateKey: privKey, publicKey: pubKey } = generateKeyPairSync('ed25519')
 
   // Extract raw 32-byte key material from DER blobs.

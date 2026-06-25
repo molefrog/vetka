@@ -33,7 +33,9 @@ export const getTangledIdentity = createServerFn({ method: 'GET' }).handler(asyn
   return rows[0] ?? null
 })
 
-export const saveSelectedRepo = createServerFn({ method: 'POST' })
+// Saves the selected repo AND provisions the SSH keypair in one atomic call.
+// Returns sshPublicKey so the client can register it with Tangled via AT Protocol.
+export const saveTangledSetup = createServerFn({ method: 'POST' })
   .validator((d: { uri: string; name: string; knot: string }) => d)
   .handler(async ({ data }) => {
     const { getRequest } = await import('@tanstack/react-start/server')
@@ -45,55 +47,45 @@ export const saveSelectedRepo = createServerFn({ method: 'POST' })
     const { tangledIdentity } = await import('../db/schema')
     const { eq } = await import('drizzle-orm')
 
+    const [identity] = await db
+      .select()
+      .from(tangledIdentity)
+      .where(eq(tangledIdentity.userId, session.user.id))
+      .limit(1)
+
+    if (!identity) throw new Error('No Tangled identity found')
+
+    // Generate SSH keypair if not already stored
+    let { sshPrivateKey, sshPublicKey, sshKeyFileId } = identity
+
+    if (!sshPrivateKey || !sshPublicKey) {
+      const { generateSSHKeyPair, uploadSshKeyToFiles } = await import('./agent.server')
+      const kp = generateSSHKeyPair()
+      sshPrivateKey = kp.privateKey
+      sshPublicKey = kp.publicKey
+      sshKeyFileId = await uploadSshKeyToFiles(sshPrivateKey)
+    } else if (!sshKeyFileId) {
+      // Key exists but wasn't uploaded to Files API yet
+      const { uploadSshKeyToFiles } = await import('./agent.server')
+      sshKeyFileId = await uploadSshKeyToFiles(sshPrivateKey)
+    }
+
+    // Save everything in one update
     await db
       .update(tangledIdentity)
       .set({
         selectedRepoUri: data.uri,
         selectedRepoName: data.name,
         selectedRepoKnot: data.knot,
+        sshPrivateKey,
+        sshPublicKey,
+        sshKeyFileId,
         updatedAt: new Date(),
       })
       .where(eq(tangledIdentity.userId, session.user.id))
+
+    return { sshPublicKey: sshPublicKey! }
   })
-
-// Generates (or reuses) the SSH keypair for this user's Tangled identity,
-// uploads it to the Files API so it can be mounted into agent sessions,
-// and returns the public key so the caller can register it with Tangled.
-export const provisionSshKey = createServerFn({ method: 'POST' }).handler(async () => {
-  const { getRequest } = await import('@tanstack/react-start/server')
-  const { auth } = await import('./auth.server')
-  const session = await auth.api.getSession({ headers: getRequest().headers })
-  if (!session?.user) throw new Error('Not authenticated')
-
-  const { db } = await import('../db')
-  const { tangledIdentity } = await import('../db/schema')
-  const { eq } = await import('drizzle-orm')
-
-  const [identity] = await db
-    .select()
-    .from(tangledIdentity)
-    .where(eq(tangledIdentity.userId, session.user.id))
-    .limit(1)
-
-  if (!identity) throw new Error('No Tangled identity found')
-
-  // Re-use the existing key if already provisioned
-  if (identity.sshPrivateKey && identity.sshPublicKey) {
-    return { sshPublicKey: identity.sshPublicKey }
-  }
-
-  // Generate a fresh OpenSSH-format Ed25519 keypair
-  const { generateSSHKeyPair, uploadSshKeyToFiles } = await import('./agent.server')
-  const { privateKey, publicKey } = generateSSHKeyPair()
-  const fileId = await uploadSshKeyToFiles(privateKey)
-
-  await db
-    .update(tangledIdentity)
-    .set({ sshPrivateKey: privateKey, sshPublicKey: publicKey, sshKeyFileId: fileId, updatedAt: new Date() })
-    .where(eq(tangledIdentity.userId, session.user.id))
-
-  return { sshPublicKey: publicKey }
-})
 
 // ---------------------------------------------------------------------------
 // Sites — the social entity

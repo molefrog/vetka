@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { getAuthSession, getTangledIdentity, createSite, saveSelectedRepo, provisionSshKey } from '../../lib/session-fns'
+import { getAuthSession, getTangledIdentity, createSite, saveTangledSetup } from '../../lib/session-fns'
 import { listRepos, listSshKeys, addSshKey, type Repo } from '../../lib/tangled'
 import { ensureOAuthConfigured } from '../../lib/oauth'
 import { cn } from '../../lib/cn'
@@ -32,7 +32,7 @@ function SetupTangledPage() {
   // Build a fallback repo entry from what's already saved in the DB
   const existingRepo: Repo | null =
     tangled.selectedRepoUri && tangled.selectedRepoName
-      ? { uri: tangled.selectedRepoUri, name: tangled.selectedRepoName, knot: tangled.selectedRepoKnot ?? undefined }
+      ? { uri: tangled.selectedRepoUri, name: tangled.selectedRepoName, knot: tangled.selectedRepoKnot ?? 'tngl.sh' }
       : null
 
   useEffect(() => {
@@ -66,23 +66,31 @@ function SetupTangledPage() {
     setSaving(true)
     setError(null)
     try {
-      // Provision (or reuse) the SSH keypair stored on the identity, then register
-      // the public key with Tangled so the push relay can authenticate.
+      // Step 1 (server): save repo selection + generate SSH keypair + upload to Files API.
+      // This is mandatory — throws on any failure, which surfaces in the catch below.
+      const knot = selected.knot ?? 'tngl.sh'
+      const { sshPublicKey } = await saveTangledSetup({
+        data: { uri: selected.uri, name: selected.name, knot },
+      })
+
+      // Step 2 (client/AT Protocol): register the public key with Tangled.
+      // Uses the browser OAuth session stored by @atcute/oauth-browser-client.
       try {
-        const { sshPublicKey } = await provisionSshKey()
-        if (sshPublicKey) {
-          const existingKeys = await listSshKeys()
-          const alreadyAdded = existingKeys.some((k) => k.key.trim() === sshPublicKey.trim())
-          if (!alreadyAdded) {
-            await addSshKey('vetka-agent', sshPublicKey)
-          }
+        const existingKeys = await listSshKeys()
+        const alreadyAdded = existingKeys.some((k) => k.key.trim() === sshPublicKey.trim())
+        if (!alreadyAdded) {
+          await addSshKey('vetka-agent', sshPublicKey)
         }
-      } catch {
-        // Non-fatal — push relay will show a clear error if the key isn't registered
+      } catch (keyErr) {
+        // If the AT Protocol session has expired, the user needs to re-login with Tangled.
+        // Bail out here so they don't reach the builder with an unregistered key.
+        throw new Error(
+          `Failed to register SSH key with Tangled: ${keyErr instanceof Error ? keyErr.message : String(keyErr)}. ` +
+            'Try signing out and signing in with Tangled again.',
+        )
       }
 
-      const knot = selected.knot ?? 'tngl.sh'
-      await saveSelectedRepo({ data: { uri: selected.uri, name: selected.name, knot } })
+      // Step 3: create/update the site record.
       await createSite({
         data: {
           domain,
@@ -93,6 +101,7 @@ function SetupTangledPage() {
           repoKnot: knot,
         },
       })
+
       router.navigate({ to: '/sites/$domain/builder', params: { domain } })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to set up site')
