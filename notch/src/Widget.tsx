@@ -38,6 +38,14 @@ interface User {
   image?: string | null
 }
 
+// Resolved context for the site the widget is embedded on (GET /api/notch/site).
+interface SiteCtx {
+  site: { id: string; domain: string } | null
+  owner: { id: string; name: string; image: string | null; handle: string; seed: string } | null
+  viewerIsOwner: boolean
+  viewerSiteId: string | null
+}
+
 interface Props {
   apiBase: string
   // Dev override to preview a specific state (?notch=owner etc). When unset the
@@ -152,6 +160,7 @@ export function Widget({ apiBase, forceMode }: Props) {
   const [tip, setTip] = useState<string | null>(null)
   const [hovered, setHovered] = useState<string | null>(null)
   const [user, setUser] = useState<User | null | undefined>(undefined)
+  const [ctx, setCtx] = useState<SiteCtx | null>(null)
   const [openPanel, setOpenPanel] = useState<string | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
 
@@ -162,23 +171,45 @@ export function Widget({ apiBase, forceMode }: Props) {
       .catch(() => setUser(null))
   }, [apiBase])
 
+  // Resolve the host site so we can tell owner from visitor and surface the
+  // owner's real identity for the "message the owner" suggestion.
+  useEffect(() => {
+    const host = typeof window !== 'undefined' ? window.location.hostname : ''
+    if (!host) return
+    fetch(`${apiBase}/api/notch/site?domain=${encodeURIComponent(host)}`, {
+      credentials: 'include',
+    })
+      .then((r) => r.json())
+      .then((d) => setCtx(d))
+      .catch(() => setCtx(null))
+  }, [apiBase])
+
   const loggedIn = !!user
-  const mode: NotchMode = forceMode ?? (loggedIn ? 'visitor' : 'anonymous')
+  const mode: NotchMode =
+    forceMode ?? (!loggedIn ? 'anonymous' : ctx?.viewerIsOwner ? 'owner' : 'visitor')
   const slots = MODES[mode]
 
   // Favicon of the embedding site as the avatar source (owner = this page).
   const faviconUrl =
     typeof window !== 'undefined' ? `${window.location.origin}/favicon.ico` : ''
 
-  // Mock identity of the page owner (host page) — used by the visitor-mode
-  // "message the owner" suggestion until real owner detection is wired.
+  // Identity of the page owner — real (resolved from /site) when the host is a
+  // registered site, else a best-effort fallback from the page itself.
   const owner = {
+    id: ctx?.owner?.id ?? null,
     name:
+      ctx?.owner?.name ||
       (typeof document !== 'undefined' && document.title) ||
       (typeof window !== 'undefined' ? window.location.hostname : 'this site'),
-    avatarSrc: faviconUrl,
-    seed: typeof window !== 'undefined' ? window.location.hostname : 'site',
+    src: ctx?.owner?.image ?? faviconUrl,
+    seed:
+      ctx?.owner?.seed ??
+      (typeof window !== 'undefined' ? window.location.hostname : 'site'),
   }
+
+  // Whose follows the Follows panel shows: the host owner's site when browsing
+  // anonymously, the viewer's own site once signed in.
+  const followsSubject = mode === 'anonymous' ? ctx?.site?.id ?? null : ctx?.viewerSiteId ?? null
 
   const closePanel = () => {
     setOpenPanel(null)
@@ -245,10 +276,16 @@ export function Widget({ apiBase, forceMode }: Props) {
       }}
     >
       {openPanel === 'messages' && (
-        <MessagesPanel mode={mode} owner={owner} onClose={closePanel} />
+        <MessagesPanel mode={mode} owner={owner} apiBase={apiBase} onClose={closePanel} />
       )}
       {openPanel === 'follows' && (
-        <FollowsPanel mode={mode} owner={owner} onClose={closePanel} />
+        <FollowsPanel
+          mode={mode}
+          owner={owner}
+          apiBase={apiBase}
+          of={followsSubject}
+          onClose={closePanel}
+        />
       )}
 
       {/* The shell: a logo circle when closed, a pill row when expanded. */}

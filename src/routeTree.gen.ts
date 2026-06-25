@@ -17,11 +17,19 @@ import { Route as SetupScriptRouteImport } from './routes/setup/script'
 import { Route as NotchTestRouteImport } from './routes/notch/test'
 import { Route as SitesDomainBuilderRouteImport } from './routes/sites/$domain/builder'
 import { Route as ApiOauthClientMetadataRouteImport } from './routes/api/oauth/client-metadata'
+import { Route as ApiNotchSiteRouteImport } from './routes/api/notch/site'
+import { Route as ApiNotchReactionsRouteImport } from './routes/api/notch/reactions'
+import { Route as ApiNotchNotificationsRouteImport } from './routes/api/notch/notifications'
 import { Route as ApiNotchMeRouteImport } from './routes/api/notch/me'
+import { Route as ApiNotchFollowsRouteImport } from './routes/api/notch/follows'
+import { Route as ApiNotchFollowersRouteImport } from './routes/api/notch/followers'
+import { Route as ApiNotchConversationsRouteImport } from './routes/api/notch/conversations'
 import { Route as ApiNotchCheckRouteImport } from './routes/api/notch/check'
 import { Route as ApiAgentUploadRouteImport } from './routes/api/agent/upload'
 import { Route as ApiAgentStreamRouteImport } from './routes/api/agent/stream'
 import { Route as ApiAgentSessionRouteImport } from './routes/api/agent/session'
+import { Route as ApiNotchConversationsPeerIdRouteImport } from './routes/api/notch/conversations/$peerId'
+import { Route as ApiNotchConversationsPeerIdMessagesRouteImport } from './routes/api/notch/conversations/$peerId/messages'
 
 const CallbackRoute = CallbackRouteImport.update({
   id: '/callback',
@@ -63,9 +71,39 @@ const ApiOauthClientMetadataRoute = ApiOauthClientMetadataRouteImport.update({
   path: '/api/oauth/client-metadata',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiNotchSiteRoute = ApiNotchSiteRouteImport.update({
+  id: '/api/notch/site',
+  path: '/api/notch/site',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiNotchReactionsRoute = ApiNotchReactionsRouteImport.update({
+  id: '/api/notch/reactions',
+  path: '/api/notch/reactions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiNotchNotificationsRoute = ApiNotchNotificationsRouteImport.update({
+  id: '/api/notch/notifications',
+  path: '/api/notch/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiNotchMeRoute = ApiNotchMeRouteImport.update({
   id: '/api/notch/me',
   path: '/api/notch/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiNotchFollowsRoute = ApiNotchFollowsRouteImport.update({
+  id: '/api/notch/follows',
+  path: '/api/notch/follows',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiNotchFollowersRoute = ApiNotchFollowersRouteImport.update({
+  id: '/api/notch/followers',
+  path: '/api/notch/followers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiNotchConversationsRoute = ApiNotchConversationsRouteImport.update({
+  id: '/api/notch/conversations',
+  path: '/api/notch/conversations',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiNotchCheckRoute = ApiNotchCheckRouteImport.update({
@@ -88,6 +126,18 @@ const ApiAgentSessionRoute = ApiAgentSessionRouteImport.update({
   path: '/api/agent/session',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiNotchConversationsPeerIdRoute =
+  ApiNotchConversationsPeerIdRouteImport.update({
+    id: '/$peerId',
+    path: '/$peerId',
+    getParentRoute: () => ApiNotchConversationsRoute,
+  } as any)
+const ApiNotchConversationsPeerIdMessagesRoute =
+  ApiNotchConversationsPeerIdMessagesRouteImport.update({
+    id: '/messages',
+    path: '/messages',
+    getParentRoute: () => ApiNotchConversationsPeerIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -100,9 +150,17 @@ export interface FileRoutesByFullPath {
   '/api/agent/stream': typeof ApiAgentStreamRoute
   '/api/agent/upload': typeof ApiAgentUploadRoute
   '/api/notch/check': typeof ApiNotchCheckRoute
+  '/api/notch/conversations': typeof ApiNotchConversationsRouteWithChildren
+  '/api/notch/followers': typeof ApiNotchFollowersRoute
+  '/api/notch/follows': typeof ApiNotchFollowsRoute
   '/api/notch/me': typeof ApiNotchMeRoute
+  '/api/notch/notifications': typeof ApiNotchNotificationsRoute
+  '/api/notch/reactions': typeof ApiNotchReactionsRoute
+  '/api/notch/site': typeof ApiNotchSiteRoute
   '/api/oauth/client-metadata': typeof ApiOauthClientMetadataRoute
   '/sites/$domain/builder': typeof SitesDomainBuilderRoute
+  '/api/notch/conversations/$peerId': typeof ApiNotchConversationsPeerIdRouteWithChildren
+  '/api/notch/conversations/$peerId/messages': typeof ApiNotchConversationsPeerIdMessagesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -115,9 +173,17 @@ export interface FileRoutesByTo {
   '/api/agent/stream': typeof ApiAgentStreamRoute
   '/api/agent/upload': typeof ApiAgentUploadRoute
   '/api/notch/check': typeof ApiNotchCheckRoute
+  '/api/notch/conversations': typeof ApiNotchConversationsRouteWithChildren
+  '/api/notch/followers': typeof ApiNotchFollowersRoute
+  '/api/notch/follows': typeof ApiNotchFollowsRoute
   '/api/notch/me': typeof ApiNotchMeRoute
+  '/api/notch/notifications': typeof ApiNotchNotificationsRoute
+  '/api/notch/reactions': typeof ApiNotchReactionsRoute
+  '/api/notch/site': typeof ApiNotchSiteRoute
   '/api/oauth/client-metadata': typeof ApiOauthClientMetadataRoute
   '/sites/$domain/builder': typeof SitesDomainBuilderRoute
+  '/api/notch/conversations/$peerId': typeof ApiNotchConversationsPeerIdRouteWithChildren
+  '/api/notch/conversations/$peerId/messages': typeof ApiNotchConversationsPeerIdMessagesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -131,9 +197,17 @@ export interface FileRoutesById {
   '/api/agent/stream': typeof ApiAgentStreamRoute
   '/api/agent/upload': typeof ApiAgentUploadRoute
   '/api/notch/check': typeof ApiNotchCheckRoute
+  '/api/notch/conversations': typeof ApiNotchConversationsRouteWithChildren
+  '/api/notch/followers': typeof ApiNotchFollowersRoute
+  '/api/notch/follows': typeof ApiNotchFollowsRoute
   '/api/notch/me': typeof ApiNotchMeRoute
+  '/api/notch/notifications': typeof ApiNotchNotificationsRoute
+  '/api/notch/reactions': typeof ApiNotchReactionsRoute
+  '/api/notch/site': typeof ApiNotchSiteRoute
   '/api/oauth/client-metadata': typeof ApiOauthClientMetadataRoute
   '/sites/$domain/builder': typeof SitesDomainBuilderRoute
+  '/api/notch/conversations/$peerId': typeof ApiNotchConversationsPeerIdRouteWithChildren
+  '/api/notch/conversations/$peerId/messages': typeof ApiNotchConversationsPeerIdMessagesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -148,9 +222,17 @@ export interface FileRouteTypes {
     | '/api/agent/stream'
     | '/api/agent/upload'
     | '/api/notch/check'
+    | '/api/notch/conversations'
+    | '/api/notch/followers'
+    | '/api/notch/follows'
     | '/api/notch/me'
+    | '/api/notch/notifications'
+    | '/api/notch/reactions'
+    | '/api/notch/site'
     | '/api/oauth/client-metadata'
     | '/sites/$domain/builder'
+    | '/api/notch/conversations/$peerId'
+    | '/api/notch/conversations/$peerId/messages'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -163,9 +245,17 @@ export interface FileRouteTypes {
     | '/api/agent/stream'
     | '/api/agent/upload'
     | '/api/notch/check'
+    | '/api/notch/conversations'
+    | '/api/notch/followers'
+    | '/api/notch/follows'
     | '/api/notch/me'
+    | '/api/notch/notifications'
+    | '/api/notch/reactions'
+    | '/api/notch/site'
     | '/api/oauth/client-metadata'
     | '/sites/$domain/builder'
+    | '/api/notch/conversations/$peerId'
+    | '/api/notch/conversations/$peerId/messages'
   id:
     | '__root__'
     | '/'
@@ -178,9 +268,17 @@ export interface FileRouteTypes {
     | '/api/agent/stream'
     | '/api/agent/upload'
     | '/api/notch/check'
+    | '/api/notch/conversations'
+    | '/api/notch/followers'
+    | '/api/notch/follows'
     | '/api/notch/me'
+    | '/api/notch/notifications'
+    | '/api/notch/reactions'
+    | '/api/notch/site'
     | '/api/oauth/client-metadata'
     | '/sites/$domain/builder'
+    | '/api/notch/conversations/$peerId'
+    | '/api/notch/conversations/$peerId/messages'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -194,7 +292,13 @@ export interface RootRouteChildren {
   ApiAgentStreamRoute: typeof ApiAgentStreamRoute
   ApiAgentUploadRoute: typeof ApiAgentUploadRoute
   ApiNotchCheckRoute: typeof ApiNotchCheckRoute
+  ApiNotchConversationsRoute: typeof ApiNotchConversationsRouteWithChildren
+  ApiNotchFollowersRoute: typeof ApiNotchFollowersRoute
+  ApiNotchFollowsRoute: typeof ApiNotchFollowsRoute
   ApiNotchMeRoute: typeof ApiNotchMeRoute
+  ApiNotchNotificationsRoute: typeof ApiNotchNotificationsRoute
+  ApiNotchReactionsRoute: typeof ApiNotchReactionsRoute
+  ApiNotchSiteRoute: typeof ApiNotchSiteRoute
   ApiOauthClientMetadataRoute: typeof ApiOauthClientMetadataRoute
   SitesDomainBuilderRoute: typeof SitesDomainBuilderRoute
 }
@@ -257,11 +361,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiOauthClientMetadataRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/notch/site': {
+      id: '/api/notch/site'
+      path: '/api/notch/site'
+      fullPath: '/api/notch/site'
+      preLoaderRoute: typeof ApiNotchSiteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/notch/reactions': {
+      id: '/api/notch/reactions'
+      path: '/api/notch/reactions'
+      fullPath: '/api/notch/reactions'
+      preLoaderRoute: typeof ApiNotchReactionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/notch/notifications': {
+      id: '/api/notch/notifications'
+      path: '/api/notch/notifications'
+      fullPath: '/api/notch/notifications'
+      preLoaderRoute: typeof ApiNotchNotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/notch/me': {
       id: '/api/notch/me'
       path: '/api/notch/me'
       fullPath: '/api/notch/me'
       preLoaderRoute: typeof ApiNotchMeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/notch/follows': {
+      id: '/api/notch/follows'
+      path: '/api/notch/follows'
+      fullPath: '/api/notch/follows'
+      preLoaderRoute: typeof ApiNotchFollowsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/notch/followers': {
+      id: '/api/notch/followers'
+      path: '/api/notch/followers'
+      fullPath: '/api/notch/followers'
+      preLoaderRoute: typeof ApiNotchFollowersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/notch/conversations': {
+      id: '/api/notch/conversations'
+      path: '/api/notch/conversations'
+      fullPath: '/api/notch/conversations'
+      preLoaderRoute: typeof ApiNotchConversationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/notch/check': {
@@ -292,8 +438,51 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAgentSessionRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/notch/conversations/$peerId': {
+      id: '/api/notch/conversations/$peerId'
+      path: '/$peerId'
+      fullPath: '/api/notch/conversations/$peerId'
+      preLoaderRoute: typeof ApiNotchConversationsPeerIdRouteImport
+      parentRoute: typeof ApiNotchConversationsRoute
+    }
+    '/api/notch/conversations/$peerId/messages': {
+      id: '/api/notch/conversations/$peerId/messages'
+      path: '/messages'
+      fullPath: '/api/notch/conversations/$peerId/messages'
+      preLoaderRoute: typeof ApiNotchConversationsPeerIdMessagesRouteImport
+      parentRoute: typeof ApiNotchConversationsPeerIdRoute
+    }
   }
 }
+
+interface ApiNotchConversationsPeerIdRouteChildren {
+  ApiNotchConversationsPeerIdMessagesRoute: typeof ApiNotchConversationsPeerIdMessagesRoute
+}
+
+const ApiNotchConversationsPeerIdRouteChildren: ApiNotchConversationsPeerIdRouteChildren =
+  {
+    ApiNotchConversationsPeerIdMessagesRoute:
+      ApiNotchConversationsPeerIdMessagesRoute,
+  }
+
+const ApiNotchConversationsPeerIdRouteWithChildren =
+  ApiNotchConversationsPeerIdRoute._addFileChildren(
+    ApiNotchConversationsPeerIdRouteChildren,
+  )
+
+interface ApiNotchConversationsRouteChildren {
+  ApiNotchConversationsPeerIdRoute: typeof ApiNotchConversationsPeerIdRouteWithChildren
+}
+
+const ApiNotchConversationsRouteChildren: ApiNotchConversationsRouteChildren = {
+  ApiNotchConversationsPeerIdRoute:
+    ApiNotchConversationsPeerIdRouteWithChildren,
+}
+
+const ApiNotchConversationsRouteWithChildren =
+  ApiNotchConversationsRoute._addFileChildren(
+    ApiNotchConversationsRouteChildren,
+  )
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -306,7 +495,13 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAgentStreamRoute: ApiAgentStreamRoute,
   ApiAgentUploadRoute: ApiAgentUploadRoute,
   ApiNotchCheckRoute: ApiNotchCheckRoute,
+  ApiNotchConversationsRoute: ApiNotchConversationsRouteWithChildren,
+  ApiNotchFollowersRoute: ApiNotchFollowersRoute,
+  ApiNotchFollowsRoute: ApiNotchFollowsRoute,
   ApiNotchMeRoute: ApiNotchMeRoute,
+  ApiNotchNotificationsRoute: ApiNotchNotificationsRoute,
+  ApiNotchReactionsRoute: ApiNotchReactionsRoute,
+  ApiNotchSiteRoute: ApiNotchSiteRoute,
   ApiOauthClientMetadataRoute: ApiOauthClientMetadataRoute,
   SitesDomainBuilderRoute: SitesDomainBuilderRoute,
 }

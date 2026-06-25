@@ -7,7 +7,7 @@ import {
   IconExpand,
   IconClose,
 } from './panel-kit'
-import { loadFollows, followingCount, type Follow } from './follows-data'
+import { loadFollows, setFollow, followingCount, type Follow } from './follows-data'
 import type { NotchMode } from './Widget'
 
 type Peer = { name: string; seed: string; src?: string }
@@ -15,25 +15,27 @@ type Peer = { name: string; seed: string; src?: string }
 interface Props {
   mode: NotchMode
   owner: Peer
+  apiBase: string
+  // The site whose follows to show: the host owner's site (anonymous mode) or
+  // the viewer's own site (visitor mode). Undefined ⇒ server defaults to viewer.
+  of?: string | null
   onClose: () => void
 }
 
-// The Follows popup — a list of accounts the viewer follows. Built from the
-// shared panel-kit so it stays visually consistent with the Messages popup
-// (they'll be tweaked together later).
-export function FollowsPanel({ onClose }: Props) {
+// The Follows popup — a list of accounts a site follows. Built from the shared
+// panel-kit so it stays visually consistent with the Messages popup.
+export function FollowsPanel({ apiBase, of, onClose }: Props) {
   const [follows, setFollows] = useState<Follow[]>([])
 
-  // Mock load now; this is where the real API call will go (see follows-data).
   useEffect(() => {
     let alive = true
-    loadFollows().then((f) => {
+    loadFollows(apiBase, of ?? undefined).then((f) => {
       if (alive) setFollows(f)
     })
     return () => {
       alive = false
     }
-  }, [])
+  }, [apiBase, of])
 
   const count = followingCount(follows)
 
@@ -83,7 +85,7 @@ export function FollowsPanel({ onClose }: Props) {
       {/* Scrollable list */}
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '6px 0' }}>
         {follows.map((f) => (
-          <FollowRow key={f.id} follow={f} />
+          <FollowRow key={f.id} follow={f} apiBase={apiBase} />
         ))}
       </div>
     </div>
@@ -91,19 +93,29 @@ export function FollowsPanel({ onClose }: Props) {
 }
 
 // A follows list row: shared PanelRow with a Follow/Following toggle trailing.
-function FollowRow({ follow }: { follow: Follow }) {
+// The toggle optimistically flips, then persists via the API (reverting on
+// failure).
+function FollowRow({ follow, apiBase }: { follow: Follow; apiBase: string }) {
   const [following, setFollowing] = useState(follow.following)
+  const [pending, setPending] = useState(false)
+
+  const toggle = async () => {
+    if (pending) return
+    const next = !following
+    setFollowing(next)
+    setPending(true)
+    const ok = await setFollow(apiBase, follow.id, next)
+    if (!ok) setFollowing(!next) // revert on failure
+    setPending(false)
+  }
+
   return (
     <PanelRow
       name={follow.name}
       seed={follow.seed}
+      src={follow.image ?? undefined}
       subtitle={follow.bio ?? follow.handle}
-      trailing={
-        <FollowButton
-          following={following}
-          onClick={() => setFollowing((v) => !v)}
-        />
-      }
+      trailing={<FollowButton following={following} onClick={toggle} />}
     />
   )
 }
