@@ -7,7 +7,6 @@ import {
   PanelRow,
   svg,
   IconClose,
-  IconExpand,
   IconBack,
 } from './panel-kit'
 import {
@@ -125,9 +124,6 @@ export function MessagesPanel({ mode, owner, apiBase, onClose }: Props) {
               </span>
             )}
             <div style={{ flex: 1 }} />
-            <HeaderBtn title="Expand">
-              <IconExpand />
-            </HeaderBtn>
             <HeaderBtn onClick={onClose} title="Close">
               <IconClose />
             </HeaderBtn>
