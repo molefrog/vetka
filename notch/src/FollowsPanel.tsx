@@ -4,7 +4,6 @@ import {
   panelContainerStyle,
   HeaderBtn,
   PanelRow,
-  IconExpand,
   IconClose,
 } from './panel-kit'
 import { loadFollows, setFollow, followingCount, type Follow } from './follows-data'
@@ -74,9 +73,6 @@ export function FollowsPanel({ apiBase, of, onClose }: Props) {
           </span>
         )}
         <div style={{ flex: 1 }} />
-        <HeaderBtn title="Expand">
-          <IconExpand />
-        </HeaderBtn>
         <HeaderBtn onClick={onClose} title="Close">
           <IconClose />
         </HeaderBtn>

@@ -11,6 +11,7 @@ import { VetkaMark } from './VetkaMark'
 import { Avatar } from './Avatar'
 import { MessagesPanel } from './MessagesPanel'
 import { FollowsPanel } from './FollowsPanel'
+import { FeedPanel } from './FeedPanel'
 import { ReactionsOverlay } from './ReactionsOverlay'
 import { createReaction, type Signal } from './reactions-data'
 import { setFollow } from './follows-data'
@@ -401,6 +402,7 @@ export function Widget({ apiBase, forceMode, forceDomain }: Props) {
         if (!openPanel) scheduleCollapse()
       }}
     >
+      {openPanel === 'feed' && <FeedPanel apiBase={apiBase} onClose={closePanel} />}
       {openPanel === 'messages' && (
         <MessagesPanel mode={mode} owner={owner} apiBase={apiBase} onClose={closePanel} />
       )}
@@ -519,7 +521,8 @@ export function Widget({ apiBase, forceMode, forceDomain }: Props) {
             const showTip = expanded && tip === slot.id
             // Icons that open a popup panel (keyed by the icon name).
             const panelKey =
-              slot.kind === 'icon' && (slot.key === 'messages' || slot.key === 'follows')
+              slot.kind === 'icon' &&
+              (slot.key === 'messages' || slot.key === 'follows' || slot.key === 'feed')
                 ? slot.key
                 : null
             const isAvatar = slot.kind === 'avatar'

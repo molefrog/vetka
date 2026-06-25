@@ -15,6 +15,7 @@ import { Route as SitesIndexRouteImport } from './routes/sites/index'
 import { Route as SetupTangledRouteImport } from './routes/setup/tangled'
 import { Route as SetupScriptRouteImport } from './routes/setup/script'
 import { Route as NotchTestRouteImport } from './routes/notch/test'
+import { Route as ApiFeedRouteImport } from './routes/api/feed'
 import { Route as SitesDomainBuilderRouteImport } from './routes/sites/$domain/builder'
 import { Route as ApiOauthClientMetadataRouteImport } from './routes/api/oauth/client-metadata'
 import { Route as ApiNotchSiteRouteImport } from './routes/api/notch/site'
@@ -29,6 +30,7 @@ import { Route as ApiAgentUploadRouteImport } from './routes/api/agent/upload'
 import { Route as ApiAgentStreamRouteImport } from './routes/api/agent/stream'
 import { Route as ApiAgentSessionRouteImport } from './routes/api/agent/session'
 import { Route as ApiAgentPushRouteImport } from './routes/api/agent/push'
+import { Route as ApiSitesDomainSnapshotRouteImport } from './routes/api/sites/$domain/snapshot'
 import { Route as ApiNotchDevDomainsRouteImport } from './routes/api/notch/dev/domains'
 import { Route as ApiNotchConversationsPeerIdRouteImport } from './routes/api/notch/conversations/$peerId'
 import { Route as ApiNotchConversationsPeerIdMessagesRouteImport } from './routes/api/notch/conversations/$peerId/messages'
@@ -61,6 +63,11 @@ const SetupScriptRoute = SetupScriptRouteImport.update({
 const NotchTestRoute = NotchTestRouteImport.update({
   id: '/notch/test',
   path: '/notch/test',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFeedRoute = ApiFeedRouteImport.update({
+  id: '/api/feed',
+  path: '/api/feed',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitesDomainBuilderRoute = SitesDomainBuilderRouteImport.update({
@@ -133,6 +140,11 @@ const ApiAgentPushRoute = ApiAgentPushRouteImport.update({
   path: '/api/agent/push',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSitesDomainSnapshotRoute = ApiSitesDomainSnapshotRouteImport.update({
+  id: '/api/sites/$domain/snapshot',
+  path: '/api/sites/$domain/snapshot',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiNotchDevDomainsRoute = ApiNotchDevDomainsRouteImport.update({
   id: '/api/notch/dev/domains',
   path: '/api/notch/dev/domains',
@@ -154,6 +166,7 @@ const ApiNotchConversationsPeerIdMessagesRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/callback': typeof CallbackRoute
+  '/api/feed': typeof ApiFeedRoute
   '/notch/test': typeof NotchTestRoute
   '/setup/script': typeof SetupScriptRoute
   '/setup/tangled': typeof SetupTangledRoute
@@ -174,11 +187,13 @@ export interface FileRoutesByFullPath {
   '/sites/$domain/builder': typeof SitesDomainBuilderRoute
   '/api/notch/conversations/$peerId': typeof ApiNotchConversationsPeerIdRouteWithChildren
   '/api/notch/dev/domains': typeof ApiNotchDevDomainsRoute
+  '/api/sites/$domain/snapshot': typeof ApiSitesDomainSnapshotRoute
   '/api/notch/conversations/$peerId/messages': typeof ApiNotchConversationsPeerIdMessagesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/callback': typeof CallbackRoute
+  '/api/feed': typeof ApiFeedRoute
   '/notch/test': typeof NotchTestRoute
   '/setup/script': typeof SetupScriptRoute
   '/setup/tangled': typeof SetupTangledRoute
@@ -199,12 +214,14 @@ export interface FileRoutesByTo {
   '/sites/$domain/builder': typeof SitesDomainBuilderRoute
   '/api/notch/conversations/$peerId': typeof ApiNotchConversationsPeerIdRouteWithChildren
   '/api/notch/dev/domains': typeof ApiNotchDevDomainsRoute
+  '/api/sites/$domain/snapshot': typeof ApiSitesDomainSnapshotRoute
   '/api/notch/conversations/$peerId/messages': typeof ApiNotchConversationsPeerIdMessagesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/callback': typeof CallbackRoute
+  '/api/feed': typeof ApiFeedRoute
   '/notch/test': typeof NotchTestRoute
   '/setup/script': typeof SetupScriptRoute
   '/setup/tangled': typeof SetupTangledRoute
@@ -225,6 +242,7 @@ export interface FileRoutesById {
   '/sites/$domain/builder': typeof SitesDomainBuilderRoute
   '/api/notch/conversations/$peerId': typeof ApiNotchConversationsPeerIdRouteWithChildren
   '/api/notch/dev/domains': typeof ApiNotchDevDomainsRoute
+  '/api/sites/$domain/snapshot': typeof ApiSitesDomainSnapshotRoute
   '/api/notch/conversations/$peerId/messages': typeof ApiNotchConversationsPeerIdMessagesRoute
 }
 export interface FileRouteTypes {
@@ -232,6 +250,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/callback'
+    | '/api/feed'
     | '/notch/test'
     | '/setup/script'
     | '/setup/tangled'
@@ -252,11 +271,13 @@ export interface FileRouteTypes {
     | '/sites/$domain/builder'
     | '/api/notch/conversations/$peerId'
     | '/api/notch/dev/domains'
+    | '/api/sites/$domain/snapshot'
     | '/api/notch/conversations/$peerId/messages'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/callback'
+    | '/api/feed'
     | '/notch/test'
     | '/setup/script'
     | '/setup/tangled'
@@ -277,11 +298,13 @@ export interface FileRouteTypes {
     | '/sites/$domain/builder'
     | '/api/notch/conversations/$peerId'
     | '/api/notch/dev/domains'
+    | '/api/sites/$domain/snapshot'
     | '/api/notch/conversations/$peerId/messages'
   id:
     | '__root__'
     | '/'
     | '/callback'
+    | '/api/feed'
     | '/notch/test'
     | '/setup/script'
     | '/setup/tangled'
@@ -302,12 +325,14 @@ export interface FileRouteTypes {
     | '/sites/$domain/builder'
     | '/api/notch/conversations/$peerId'
     | '/api/notch/dev/domains'
+    | '/api/sites/$domain/snapshot'
     | '/api/notch/conversations/$peerId/messages'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CallbackRoute: typeof CallbackRoute
+  ApiFeedRoute: typeof ApiFeedRoute
   NotchTestRoute: typeof NotchTestRoute
   SetupScriptRoute: typeof SetupScriptRoute
   SetupTangledRoute: typeof SetupTangledRoute
@@ -327,6 +352,7 @@ export interface RootRouteChildren {
   ApiOauthClientMetadataRoute: typeof ApiOauthClientMetadataRoute
   SitesDomainBuilderRoute: typeof SitesDomainBuilderRoute
   ApiNotchDevDomainsRoute: typeof ApiNotchDevDomainsRoute
+  ApiSitesDomainSnapshotRoute: typeof ApiSitesDomainSnapshotRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -371,6 +397,13 @@ declare module '@tanstack/react-router' {
       path: '/notch/test'
       fullPath: '/notch/test'
       preLoaderRoute: typeof NotchTestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/feed': {
+      id: '/api/feed'
+      path: '/api/feed'
+      fullPath: '/api/feed'
+      preLoaderRoute: typeof ApiFeedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sites/$domain/builder': {
@@ -471,6 +504,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAgentPushRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/sites/$domain/snapshot': {
+      id: '/api/sites/$domain/snapshot'
+      path: '/api/sites/$domain/snapshot'
+      fullPath: '/api/sites/$domain/snapshot'
+      preLoaderRoute: typeof ApiSitesDomainSnapshotRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/notch/dev/domains': {
       id: '/api/notch/dev/domains'
       path: '/api/notch/dev/domains'
@@ -527,6 +567,7 @@ const ApiNotchConversationsRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CallbackRoute: CallbackRoute,
+  ApiFeedRoute: ApiFeedRoute,
   NotchTestRoute: NotchTestRoute,
   SetupScriptRoute: SetupScriptRoute,
   SetupTangledRoute: SetupTangledRoute,
@@ -546,6 +587,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiOauthClientMetadataRoute: ApiOauthClientMetadataRoute,
   SitesDomainBuilderRoute: SitesDomainBuilderRoute,
   ApiNotchDevDomainsRoute: ApiNotchDevDomainsRoute,
+  ApiSitesDomainSnapshotRoute: ApiSitesDomainSnapshotRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
