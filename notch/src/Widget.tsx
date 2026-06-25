@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, type CSSProperties } from 'react'
 import { Facehash } from 'facehash'
 import { NotchIcon, type IconName } from './NotchIcon'
+import { VetkaMark } from './VetkaMark'
 
 // Frost — dark glass (the recommended universal default, per local-drafts/README.md).
 const FROST = {
@@ -73,12 +74,12 @@ const MODES: Record<NotchMode, Slot[]> = {
 
 const BTN: CSSProperties = {
   position: 'relative',
-  width: 32,
-  height: 32,
+  width: 40,
+  height: 40,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  borderRadius: 9,
+  borderRadius: 11,
   cursor: 'pointer',
   flex: '0 0 auto',
   transition: 'background .15s ease',
@@ -89,15 +90,15 @@ const BTN: CSSProperties = {
 }
 
 // Renders a real photo when `src` loads, otherwise a deterministic facehash
-// avatar seeded by `seed` — masked into the 32px circle.
+// avatar seeded by `seed` — masked into the 40px circle.
 function Avatar({ src, seed }: { src?: string; seed: string }) {
   const [broken, setBroken] = useState(false)
   const showImg = !!src && !broken
   return (
     <div
       style={{
-        width: 32,
-        height: 32,
+        width: 40,
+        height: 40,
         borderRadius: 999,
         overflow: 'hidden',
         flex: '0 0 auto',
@@ -115,7 +116,7 @@ function Avatar({ src, seed }: { src?: string; seed: string }) {
           style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
         />
       ) : (
-        <Facehash name={seed} size={32} interactive={false} />
+        <Facehash name={seed} size={40} interactive={false} />
       )}
     </div>
   )
@@ -186,14 +187,14 @@ export function Widget({ apiBase, forceMode }: Props) {
         style={{
           display: 'inline-flex',
           alignItems: 'center',
-          padding: 5,
+          padding: 6,
           background: FROST.surface,
           color: FROST.ink,
           border: FROST.border,
           boxShadow: FROST.shadow,
           backdropFilter: FROST.blur,
           WebkitBackdropFilter: FROST.blur,
-          borderRadius: expanded ? 22 : 999,
+          borderRadius: expanded ? 28 : 999,
           transition: expanded
             ? 'border-radius .28s ease'
             : 'border-radius .18s ease',
@@ -206,10 +207,10 @@ export function Widget({ apiBase, forceMode }: Props) {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            height: 32,
+            height: 40,
             color: FROST.logo,
             overflow: 'hidden',
-            maxWidth: expanded ? 0 : 32,
+            maxWidth: expanded ? 0 : 40,
             opacity: expanded ? 0 : 1,
             transition: expanded
               ? 'max-width .16s ease, opacity .12s ease'
@@ -218,15 +219,15 @@ export function Widget({ apiBase, forceMode }: Props) {
         >
           <div
             style={{
-              width: 32,
-              height: 32,
+              width: 40,
+              height: 40,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               flex: '0 0 auto',
             }}
           >
-            <NotchIcon name="logo" />
+            <VetkaMark size={33} variant="lean" />
           </div>
         </div>
 
@@ -235,9 +236,9 @@ export function Widget({ apiBase, forceMode }: Props) {
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 4,
+            gap: 5,
             overflow: expanded ? 'visible' : 'hidden',
-            maxWidth: expanded ? 480 : 0,
+            maxWidth: expanded ? 600 : 0,
             opacity: expanded ? 1 : 0,
             transition: expanded
               ? 'max-width .28s ease, opacity .18s ease .12s'
@@ -276,24 +277,24 @@ export function Widget({ apiBase, forceMode }: Props) {
                     <Avatar src={user?.image ?? undefined} seed={user?.email ?? 'anon'} />
                   )
                 ) : (
-                  <NotchIcon name={slot.key} />
+                  <NotchIcon name={slot.key} size={25} />
                 )}
 
                 {showTip && (
                   <span
                     style={{
                       position: 'absolute',
-                      bottom: 'calc(100% + 9px)',
+                      bottom: 'calc(100% + 11px)',
                       left: '50%',
                       transform: 'translateX(-50%)',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 6,
-                      padding: '5px 8px',
-                      borderRadius: 8,
+                      gap: 8,
+                      padding: '6px 10px',
+                      borderRadius: 10,
                       background: FROST.tipBg,
                       color: FROST.tipInk,
-                      fontSize: 11,
+                      fontSize: 14,
                       lineHeight: 1,
                       fontWeight: 600,
                       whiteSpace: 'nowrap',
@@ -308,9 +309,9 @@ export function Widget({ apiBase, forceMode }: Props) {
                     {slot.kind === 'icon' && slot.sc && (
                       <span
                         style={{
-                          fontSize: 10,
-                          padding: '2px 5px',
-                          borderRadius: 5,
+                          fontSize: 13,
+                          padding: '3px 6px',
+                          borderRadius: 6,
                           background: FROST.tipChipBg,
                           color: 'inherit',
                           fontFamily: "'IBM Plex Mono', monospace",

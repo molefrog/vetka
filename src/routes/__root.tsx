@@ -8,7 +8,11 @@ export const Route = createRootRoute({
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
       { title: 'Vetka' },
     ],
-    links: [{ rel: 'stylesheet', href: appCss }],
+    links: [
+      { rel: 'stylesheet', href: appCss },
+      { rel: 'icon', type: 'image/svg+xml', href: '/vetka-logo.svg' },
+      { rel: 'manifest', href: '/manifest.json' },
+    ],
   }),
   shellComponent: RootDocument,
 })

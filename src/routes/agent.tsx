@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { getAuthSession } from '../lib/session-fns'
 import { getTangledIdentity } from '../lib/session-fns'
 import { cn } from '../lib/cn'
+import { VetkaLogo } from '../components/VetkaLogo'
 
 export const Route = createFileRoute('/agent')({ component: BuilderPage })
 
@@ -129,7 +130,10 @@ function BuilderPage() {
 
       {/* Navbar */}
       <nav className="border-b border-black px-4 h-9 flex items-center shrink-0">
-        <a href="/" className="text-zinc-500 hover:text-black underline underline-offset-2">← vetka</a>
+        <a href="/" className="flex items-center gap-1.5 text-zinc-500 hover:text-black underline underline-offset-2">
+          <VetkaLogo size={14} />
+          ← vetka
+        </a>
         <span className="ml-4">Site builder</span>
         <div className="ml-auto flex items-center gap-2">
           <div className={cn('w-1.5 h-1.5', agentRunning ? 'bg-black' : 'bg-zinc-300')} />

@@ -5,6 +5,7 @@ import { signOut } from '../lib/auth-client'
 import { listSshKeys, addSshKey, type SshKey } from '../lib/tangled'
 import { ensureOAuthConfigured } from '../lib/oauth'
 import { cn } from '../lib/cn'
+import { VetkaLogo } from '../components/VetkaLogo'
 
 export const Route = createFileRoute('/dashboard')({ component: DashboardPage })
 
@@ -101,7 +102,10 @@ function DashboardPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-xl font-semibold tracking-tight">Vetka</div>
+            <div className="flex items-center gap-2 text-xl font-semibold tracking-tight">
+              <VetkaLogo size={22} />
+              Vetka
+            </div>
             <div className="text-sm text-zinc-400 mt-0.5">{displayName}</div>
           </div>
           <button

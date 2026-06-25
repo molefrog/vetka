@@ -5,6 +5,7 @@ import type { Did } from '@atcute/lexicons'
 import { ensureOAuthConfigured } from '../lib/oauth'
 import { listRepos, listSshKeys, addSshKey, type Repo, type SshKey } from '../lib/tangled'
 import { cn } from '../lib/cn'
+import { VetkaLogo } from '../components/VetkaLogo'
 
 export const Route = createFileRoute('/repos')({ component: ReposPage })
 
@@ -93,7 +94,10 @@ function ReposPage() {
     <div className="min-h-screen px-4 py-10">
       <div className="max-w-2xl mx-auto space-y-10">
         <div className="flex items-center justify-between">
-          <div className="text-xl font-semibold tracking-tight">Vetka</div>
+          <div className="flex items-center gap-2 text-xl font-semibold tracking-tight">
+            <VetkaLogo size={22} />
+            Vetka
+          </div>
           <button onClick={signOut} className="text-sm text-zinc-400 hover:text-zinc-900 transition-colors">
             Sign out
           </button>
