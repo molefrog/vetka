@@ -117,7 +117,7 @@ export const Route = createFileRoute('/api/agent/stream')({
 
               // Loop to handle custom tool calls: stream → pause → execute tool → resume
               while (true) {
-                type PendingTool = { id: string; name: string; input: Record<string, unknown>; session_thread_id?: string | null }
+                type PendingTool = { id: string; name: string; input: Record<string, unknown> }
                 let pendingCustomTool: PendingTool | null = null
                 let terminated = false
 
@@ -138,7 +138,7 @@ export const Route = createFileRoute('/api/agent/stream')({
                   } else if (e.type === 'agent.mcp_tool_use') {
                     send({ type: 'tool_use', id: e.id, name: `${e.mcp_server_name}:${e.name}`, input: e.input })
                   } else if (e.type === 'agent.custom_tool_use') {
-                    pendingCustomTool = { id: e.id, name: e.name, input: e.input, session_thread_id: e.session_thread_id }
+                    pendingCustomTool = { id: e.id, name: e.name, input: e.input }
                     send({ type: 'tool_use', id: e.id, name: e.name, input: e.input })
                   } else if (e.type === 'agent.tool_result') {
                     send({ type: 'tool_result', tool_use_id: e.tool_use_id, output: extractBlockText(e.content), is_error: !!e.is_error })
@@ -158,26 +158,23 @@ export const Route = createFileRoute('/api/agent/stream')({
 
                 // If the session paused for a push_repo custom tool call, execute it and loop
                 if (pendingCustomTool?.name === 'push_repo') {
-                  send({ type: 'tool_result', tool_use_id: pendingCustomTool.id, output: 'Pushing…', is_error: false })
-
                   const { pushBundle } = await import('../../../lib/push.server')
                   const bundleB64 = pendingCustomTool.input.bundle_base64 as string
                   const bundleBytes = Buffer.from(bundleB64, 'base64')
                   const result = await pushBundle(bundleBytes, userId)
 
+                  // Send tool result back to the Managed Agents session (resumes the agent)
                   await client.beta.sessions.events.send(sessionId, {
                     events: [{
                       type: 'user.custom_tool_result' as any,
                       custom_tool_use_id: pendingCustomTool.id,
                       content: [{ type: 'text', text: JSON.stringify(result) }],
                       is_error: 'error' in result,
-                      session_thread_id: pendingCustomTool.session_thread_id ?? undefined,
                     }],
                   })
 
-                  // Send a proper tool_result to the UI with the outcome
                   send({ type: 'tool_result', tool_use_id: pendingCustomTool.id, output: JSON.stringify(result), is_error: 'error' in result })
-                  continue // resume stream to get agent's next response
+                  continue
                 }
 
                 break // no custom tool pending → agent is done

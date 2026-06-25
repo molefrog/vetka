@@ -28,7 +28,7 @@ export async function pushBundle(
 
     const env = {
       ...process.env,
-      GIT_SSH_COMMAND: `ssh -i ${keyPath} -o StrictHostKeyChecking=no -o ConnectTimeout=15 -4`,
+      GIT_SSH_COMMAND: `ssh -i ${keyPath} -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o ConnectTimeout=15 -4`,
       HOME: tmpDir,
     }
 

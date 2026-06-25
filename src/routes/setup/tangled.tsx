@@ -29,14 +29,37 @@ function SetupTangledPage() {
 
   const domain = tangled.handle.startsWith('did:') ? null : tangled.handle
 
+  // Build a fallback repo entry from what's already saved in the DB
+  const existingRepo: Repo | null =
+    tangled.selectedRepoUri && tangled.selectedRepoName
+      ? { uri: tangled.selectedRepoUri, name: tangled.selectedRepoName, knot: tangled.selectedRepoKnot ?? undefined }
+      : null
+
   useEffect(() => {
+    // Pre-select whatever is already configured
+    if (existingRepo) setSelected(existingRepo)
+
     try {
       ensureOAuthConfigured()
-      listRepos().then((r) => { setRepos(r); setReposLoaded(true) }).catch(() => setReposLoaded(true))
+      listRepos()
+        .then((r) => {
+          setRepos(r)
+          // If the live list loaded but doesn't include the existing repo, prepend it so it stays selectable
+          if (existingRepo && !r.some((x) => x.uri === existingRepo.uri)) {
+            setRepos([existingRepo, ...r])
+          }
+          setReposLoaded(true)
+        })
+        .catch(() => {
+          // OAuth token missing (e.g. impersonation) — fall back to DB value
+          if (existingRepo) setRepos([existingRepo])
+          setReposLoaded(true)
+        })
     } catch {
+      if (existingRepo) setRepos([existingRepo])
       setReposLoaded(true)
     }
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSave() {
     if (!selected || !domain) return

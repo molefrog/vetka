@@ -9,7 +9,7 @@ export interface Repo {
   name: string
   knot: string
   description?: string
-  sshUrl: string
+  sshUrl?: string
 }
 
 export interface SshKey {

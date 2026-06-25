@@ -161,11 +161,8 @@ export const getPostLoginDestination = createServerFn({ method: 'GET' }).handler
   if (!session?.user) return '/' as const
 
   const { db } = await import('../db')
-  const { site, tangledIdentity } = await import('../db/schema')
+  const { tangledIdentity } = await import('../db/schema')
   const { eq } = await import('drizzle-orm')
-
-  const sites = await db.select().from(site).where(eq(site.userId, session.user.id)).limit(1)
-  if (sites.length > 0) return '/' as const
 
   const tangled = await db
     .select()
@@ -173,5 +170,8 @@ export const getPostLoginDestination = createServerFn({ method: 'GET' }).handler
     .where(eq(tangledIdentity.userId, session.user.id))
     .limit(1)
 
-  return tangled.length > 0 ? ('/setup/tangled' as const) : ('/setup/script' as const)
+  // Always send Tangled users through setup so SSH keys are always provisioned.
+  if (tangled.length > 0) return '/setup/tangled' as const
+
+  return '/setup/script' as const
 })

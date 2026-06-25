@@ -20,25 +20,71 @@ export function getAnthropicClient() {
   return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 }
 
+// Encode a uint32 as 4 big-endian bytes (SSH wire format helper).
+function u32(n: number): Buffer {
+  const b = Buffer.alloc(4)
+  b.writeUInt32BE(n)
+  return b
+}
+
+// Prefix a buffer with its uint32 length (SSH string encoding).
+function sshStr(data: Buffer | string): Buffer {
+  const b = Buffer.isBuffer(data) ? data : Buffer.from(data)
+  return Buffer.concat([u32(b.length), b])
+}
+
 // Generate an Ed25519 SSH keypair.
-// Returns privateKey as PKCS8 PEM (accepted by OpenSSH 7.8+) and
-// publicKey in OpenSSH wire format (ready for authorized_keys / Tangled settings).
+// Produces privateKey in OpenSSH format (-----BEGIN OPENSSH PRIVATE KEY-----)
+// and publicKey in authorized_keys format (ssh-ed25519 <base64> vetka-agent).
 function generateSSHKeyPair(): { privateKey: string; publicKey: string } {
   const { privateKey: privKey, publicKey: pubKey } = generateKeyPairSync('ed25519')
 
-  const privateKeyPem = privKey.export({ format: 'pem', type: 'pkcs8' }) as string
+  // Extract raw 32-byte key material from DER blobs.
+  // Ed25519 PKCS8 DER: 16-byte wrapper, then 32-byte seed.
+  const privDer = privKey.export({ format: 'der', type: 'pkcs8' }) as Buffer
+  const seed = privDer.slice(16) // 32-byte private seed
 
-  // Ed25519 SPKI DER layout: 12-byte header + 32-byte raw public key
+  // Ed25519 SPKI DER: 12-byte wrapper, then 32-byte public key.
   const pubDer = pubKey.export({ format: 'der', type: 'spki' }) as Buffer
-  const keyBytes = pubDer.slice(12)
+  const pub = pubDer.slice(12) // 32-byte public key
 
-  const type = 'ssh-ed25519'
-  const typeBuf = Buffer.from(type)
-  const typeLen = Buffer.alloc(4); typeLen.writeUInt32BE(typeBuf.length)
-  const keyLen = Buffer.alloc(4); keyLen.writeUInt32BE(keyBytes.length)
-  const wire = Buffer.concat([typeLen, typeBuf, keyLen, keyBytes])
+  // OpenSSH private key blob (unencrypted, cipher=none, kdf=none)
+  const keyType = Buffer.from('ssh-ed25519')
+  const pubKeySection = Buffer.concat([sshStr(keyType), sshStr(pub)])
+  const checkInt = u32(Math.floor(Math.random() * 0xffffffff))
+  // Private key in OpenSSH = seed + pub (64 bytes)
+  const privateSection = Buffer.concat([
+    checkInt,
+    checkInt, // must match
+    sshStr(keyType),
+    sshStr(pub),
+    sshStr(Buffer.concat([seed, pub])), // 64-byte private blob
+    sshStr(Buffer.from('vetka-agent')),  // comment
+  ])
+  // Pad to multiple of 8 (block size for cipher=none)
+  const paddingLen = (8 - (privateSection.length % 8)) % 8
+  const padding = Buffer.from(Array.from({ length: paddingLen }, (_, i) => i + 1))
 
-  return { privateKey: privateKeyPem, publicKey: `${type} ${wire.toString('base64')} vetka-agent` }
+  const body = Buffer.concat([
+    Buffer.from('openssh-key-v1\0'),
+    sshStr(Buffer.from('none')), // cipher
+    sshStr(Buffer.from('none')), // kdf
+    sshStr(Buffer.alloc(0)),     // kdf options (empty)
+    u32(1),                      // number of keys
+    sshStr(pubKeySection),
+    sshStr(Buffer.concat([privateSection, padding])),
+  ])
+
+  const privateKey =
+    '-----BEGIN OPENSSH PRIVATE KEY-----\n' +
+    body.toString('base64').match(/.{1,70}/g)!.join('\n') +
+    '\n-----END OPENSSH PRIVATE KEY-----\n'
+
+  // Public key in authorized_keys format
+  const wire = Buffer.concat([sshStr(keyType), sshStr(pub)])
+  const publicKey = `ssh-ed25519 ${wire.toString('base64')} vetka-agent`
+
+  return { privateKey, publicKey }
 }
 
 export async function getOrCreateSession(userId: string): Promise<{
