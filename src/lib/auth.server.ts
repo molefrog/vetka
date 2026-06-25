@@ -6,7 +6,6 @@ import { createAuthEndpoint } from '@better-auth/core/api'
 import { APIError } from 'better-auth'
 import { db } from '../db'
 import * as schema from '../db/schema'
-import { eq } from 'drizzle-orm'
 import * as z from 'zod'
 
 function tangledPlugin() {
@@ -61,12 +60,18 @@ function tangledPlugin() {
               providerId: 'tangled',
               accountId: did,
             })
-            // Link tangledIdentity to this better-auth user
-            await db
-              .update(schema.tangledIdentity)
-              .set({ userId: user.id, handle, updatedAt: new Date() })
-              .where(eq(schema.tangledIdentity.did, did))
           }
+
+          // Upsert the tangledIdentity row and link it to this better-auth user.
+          // Runs for new and existing logins so the row is always created and the
+          // handle stays fresh (self-heals accounts created before this existed).
+          await db
+            .insert(schema.tangledIdentity)
+            .values({ did, handle, userId: user.id })
+            .onConflictDoUpdate({
+              target: schema.tangledIdentity.did,
+              set: { userId: user.id, handle, updatedAt: new Date() },
+            })
 
           const session = await ctx.context.internalAdapter.createSession(user.id)
           if (!session)
