@@ -60,37 +60,6 @@ function betterAuthPlugin(): Plugin {
   }
 }
 
-function oauthClientMetadataPlugin(): Plugin {
-  return {
-    name: 'oauth-client-metadata',
-    configureServer(server) {
-      server.middlewares.use((req, res, next) => {
-        if (req.url !== '/api/oauth/client-metadata') return next()
-        const appUrl = process.env.VITE_APP_URL ?? 'http://127.0.0.1:3000'
-        const clientId =
-          process.env.VITE_OAUTH_CLIENT_ID ?? `${appUrl}/api/oauth/client-metadata`
-        const redirectUri =
-          process.env.VITE_OAUTH_REDIRECT_URI ?? 'http://127.0.0.1:3000/callback'
-        const metadata = {
-          client_id: clientId,
-          client_name: 'Vetka',
-          client_uri: appUrl,
-          redirect_uris: [redirectUri],
-          scope: 'atproto transition:generic',
-          grant_types: ['authorization_code', 'refresh_token'],
-          response_types: ['code'],
-          token_endpoint_auth_method: 'none',
-          application_type: 'web',
-          dpop_bound_access_tokens: true,
-        }
-        res.setHeader('Content-Type', 'application/json')
-        res.setHeader('Access-Control-Allow-Origin', '*')
-        res.end(JSON.stringify(metadata))
-      })
-    },
-  }
-}
-
 
 const config = defineConfig({
   resolve: { tsconfigPaths: true },
@@ -98,7 +67,6 @@ const config = defineConfig({
   plugins: [
     notchBuildPlugin(),
     betterAuthPlugin(),
-    oauthClientMetadataPlugin(),
     devtools(),
     tailwindcss(),
     tanstackStart(),

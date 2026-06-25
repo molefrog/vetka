@@ -16,6 +16,11 @@ import { Route as CallbackRouteImport } from './routes/callback'
 import { Route as AgentRouteImport } from './routes/agent'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as NotchTestRouteImport } from './routes/notch/test'
+import { Route as ApiOauthClientMetadataRouteImport } from './routes/api/oauth/client-metadata'
+import { Route as ApiNotchMeRouteImport } from './routes/api/notch/me'
+import { Route as ApiAgentStreamRouteImport } from './routes/api/agent/stream'
+import { Route as ApiAgentSessionRouteImport } from './routes/api/agent/session'
+import { Route as ApiAgentMessageRouteImport } from './routes/api/agent/message'
 
 const SelectRepoRoute = SelectRepoRouteImport.update({
   id: '/select-repo',
@@ -52,6 +57,31 @@ const NotchTestRoute = NotchTestRouteImport.update({
   path: '/notch/test',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiOauthClientMetadataRoute = ApiOauthClientMetadataRouteImport.update({
+  id: '/api/oauth/client-metadata',
+  path: '/api/oauth/client-metadata',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiNotchMeRoute = ApiNotchMeRouteImport.update({
+  id: '/api/notch/me',
+  path: '/api/notch/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAgentStreamRoute = ApiAgentStreamRouteImport.update({
+  id: '/api/agent/stream',
+  path: '/api/agent/stream',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAgentSessionRoute = ApiAgentSessionRouteImport.update({
+  id: '/api/agent/session',
+  path: '/api/agent/session',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAgentMessageRoute = ApiAgentMessageRouteImport.update({
+  id: '/api/agent/message',
+  path: '/api/agent/message',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -61,6 +91,11 @@ export interface FileRoutesByFullPath {
   '/repos': typeof ReposRoute
   '/select-repo': typeof SelectRepoRoute
   '/notch/test': typeof NotchTestRoute
+  '/api/agent/message': typeof ApiAgentMessageRoute
+  '/api/agent/session': typeof ApiAgentSessionRoute
+  '/api/agent/stream': typeof ApiAgentStreamRoute
+  '/api/notch/me': typeof ApiNotchMeRoute
+  '/api/oauth/client-metadata': typeof ApiOauthClientMetadataRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -70,6 +105,11 @@ export interface FileRoutesByTo {
   '/repos': typeof ReposRoute
   '/select-repo': typeof SelectRepoRoute
   '/notch/test': typeof NotchTestRoute
+  '/api/agent/message': typeof ApiAgentMessageRoute
+  '/api/agent/session': typeof ApiAgentSessionRoute
+  '/api/agent/stream': typeof ApiAgentStreamRoute
+  '/api/notch/me': typeof ApiNotchMeRoute
+  '/api/oauth/client-metadata': typeof ApiOauthClientMetadataRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -80,6 +120,11 @@ export interface FileRoutesById {
   '/repos': typeof ReposRoute
   '/select-repo': typeof SelectRepoRoute
   '/notch/test': typeof NotchTestRoute
+  '/api/agent/message': typeof ApiAgentMessageRoute
+  '/api/agent/session': typeof ApiAgentSessionRoute
+  '/api/agent/stream': typeof ApiAgentStreamRoute
+  '/api/notch/me': typeof ApiNotchMeRoute
+  '/api/oauth/client-metadata': typeof ApiOauthClientMetadataRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -91,6 +136,11 @@ export interface FileRouteTypes {
     | '/repos'
     | '/select-repo'
     | '/notch/test'
+    | '/api/agent/message'
+    | '/api/agent/session'
+    | '/api/agent/stream'
+    | '/api/notch/me'
+    | '/api/oauth/client-metadata'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -100,6 +150,11 @@ export interface FileRouteTypes {
     | '/repos'
     | '/select-repo'
     | '/notch/test'
+    | '/api/agent/message'
+    | '/api/agent/session'
+    | '/api/agent/stream'
+    | '/api/notch/me'
+    | '/api/oauth/client-metadata'
   id:
     | '__root__'
     | '/'
@@ -109,6 +164,11 @@ export interface FileRouteTypes {
     | '/repos'
     | '/select-repo'
     | '/notch/test'
+    | '/api/agent/message'
+    | '/api/agent/session'
+    | '/api/agent/stream'
+    | '/api/notch/me'
+    | '/api/oauth/client-metadata'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -119,6 +179,11 @@ export interface RootRouteChildren {
   ReposRoute: typeof ReposRoute
   SelectRepoRoute: typeof SelectRepoRoute
   NotchTestRoute: typeof NotchTestRoute
+  ApiAgentMessageRoute: typeof ApiAgentMessageRoute
+  ApiAgentSessionRoute: typeof ApiAgentSessionRoute
+  ApiAgentStreamRoute: typeof ApiAgentStreamRoute
+  ApiNotchMeRoute: typeof ApiNotchMeRoute
+  ApiOauthClientMetadataRoute: typeof ApiOauthClientMetadataRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -172,6 +237,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NotchTestRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/oauth/client-metadata': {
+      id: '/api/oauth/client-metadata'
+      path: '/api/oauth/client-metadata'
+      fullPath: '/api/oauth/client-metadata'
+      preLoaderRoute: typeof ApiOauthClientMetadataRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/notch/me': {
+      id: '/api/notch/me'
+      path: '/api/notch/me'
+      fullPath: '/api/notch/me'
+      preLoaderRoute: typeof ApiNotchMeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/agent/stream': {
+      id: '/api/agent/stream'
+      path: '/api/agent/stream'
+      fullPath: '/api/agent/stream'
+      preLoaderRoute: typeof ApiAgentStreamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/agent/session': {
+      id: '/api/agent/session'
+      path: '/api/agent/session'
+      fullPath: '/api/agent/session'
+      preLoaderRoute: typeof ApiAgentSessionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/agent/message': {
+      id: '/api/agent/message'
+      path: '/api/agent/message'
+      fullPath: '/api/agent/message'
+      preLoaderRoute: typeof ApiAgentMessageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -183,6 +283,11 @@ const rootRouteChildren: RootRouteChildren = {
   ReposRoute: ReposRoute,
   SelectRepoRoute: SelectRepoRoute,
   NotchTestRoute: NotchTestRoute,
+  ApiAgentMessageRoute: ApiAgentMessageRoute,
+  ApiAgentSessionRoute: ApiAgentSessionRoute,
+  ApiAgentStreamRoute: ApiAgentStreamRoute,
+  ApiNotchMeRoute: ApiNotchMeRoute,
+  ApiOauthClientMetadataRoute: ApiOauthClientMetadataRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
