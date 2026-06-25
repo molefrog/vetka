@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Avatar } from './Avatar'
 import {
   PANEL,
@@ -10,14 +10,24 @@ import {
   IconExpand,
   IconBack,
 } from './panel-kit'
-import { CONVERSATIONS, unreadCount, type Conversation, type MockMessage } from './messages-data'
+import {
+  loadConversations,
+  loadThread,
+  sendMessage,
+  unreadCount,
+  type Conversation,
+  type ChatMessage,
+} from './messages-data'
 import type { NotchMode } from './Widget'
 
-type Peer = { name: string; seed: string; src?: string }
+// A peer carries an `id` (site id) when it's messageable via the API; the
+// host-page owner fallback may lack one until owner detection resolves a site.
+type Peer = { id?: string | null; name: string; seed: string; src?: string }
 
 interface Props {
   mode: NotchMode
   owner: Peer
+  apiBase: string
   onClose: () => void
 }
 
@@ -31,30 +41,52 @@ const IconCompose = () =>
   )
 const IconSend = () => svg(<><path d="M5 12 H18" /><path d="M12 6 L18 12 L12 18" /></>)
 
-export function MessagesPanel({ mode, owner, onClose }: Props) {
+export function MessagesPanel({ mode, owner, apiBase, onClose }: Props) {
   const [view, setView] = useState<'list' | 'thread'>('list')
   const [peer, setPeer] = useState<Peer | null>(null)
-  const [messages, setMessages] = useState<MockMessage[]>([])
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
 
-  const openConversation = (c: Conversation) => {
-    setPeer({ name: c.name, seed: c.seed })
-    setMessages(c.thread)
+  // Load the conversation list on open.
+  useEffect(() => {
+    let alive = true
+    loadConversations(apiBase).then((c) => {
+      if (alive) setConversations(c)
+    })
+    return () => {
+      alive = false
+    }
+  }, [apiBase])
+
+  const openConversation = async (c: Conversation) => {
+    setPeer({ id: c.id, name: c.name, seed: c.seed, src: c.image ?? undefined })
+    setMessages([])
     setView('thread')
+    const thread = await loadThread(apiBase, c.id)
+    setMessages(thread)
+    // Opening clears the unread dot (the server marked it read).
+    setConversations((list) =>
+      list.map((x) => (x.id === c.id ? { ...x, unread: false } : x)),
+    )
   }
-  const openOwner = () => {
+  const openOwner = async () => {
     setPeer(owner)
     setMessages([])
     setView('thread')
+    if (owner.id) setMessages(await loadThread(apiBase, owner.id))
   }
-  const send = () => {
+  const send = async () => {
     const text = input.trim()
-    if (!text) return
-    setMessages((m) => [...m, { id: `me-${m.length}-${text.length}-${Math.random()}`, fromMe: true, text }])
+    if (!text || !peer?.id) return
     setInput('')
+    const optimistic: ChatMessage = { id: `tmp-${text.length}-${text}`, fromMe: true, text }
+    setMessages((m) => [...m, optimistic])
+    const saved = await sendMessage(apiBase, peer.id, text)
+    if (saved) setMessages((m) => m.map((x) => (x.id === optimistic.id ? saved : x)))
   }
 
-  const badge = unreadCount(CONVERSATIONS)
+  const badge = unreadCount(conversations)
 
   return (
     <div style={panelContainerStyle} onMouseDown={(e) => e.stopPropagation()}>
@@ -131,13 +163,14 @@ export function MessagesPanel({ mode, owner, onClose }: Props) {
               </>
             )}
 
-            {CONVERSATIONS.map((c) => {
+            {conversations.map((c) => {
               const time = c.status ? '' : c.time
               return (
                 <PanelRow
                   key={c.id}
                   name={c.name}
                   seed={c.seed}
+                  src={c.image ?? undefined}
                   strong={c.unread}
                   subtitleColor={c.unread ? PANEL.ink : PANEL.muted}
                   subtitle={
@@ -230,7 +263,7 @@ function Thread({
   onClose,
 }: {
   peer: Peer
-  messages: MockMessage[]
+  messages: ChatMessage[]
   input: string
   setInput: (v: string) => void
   onSend: () => void
