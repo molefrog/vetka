@@ -1,46 +1,82 @@
 # Vetka — knowledge base
 
-SSH key manager for [Tangled](https://tangled.org) repos, built on AT Protocol OAuth.
+A social layer for the personal web. People connect their websites, follow each other, and interact via **Notch** — a JS widget injected into any site.
 
-## What it does
+## Product overview (user perspective)
 
-1. User signs in (email/password, Google, or Tangled OAuth)
-2. App lists their Tangled repos (`sh.tangled.repo` records from their AT Protocol PDS)
-3. User pastes an SSH public key → app creates a `sh.tangled.publicKey` record in their PDS
-4. Tangled knot servers read those records to grant SSH access
+There are two types of users:
+
+**Regular user** — signs in, connects an existing website domain. Gets Notch injected. No agent access; shown a stub ("move your site to Tangled to unlock the agent").
+
+**Tangled user** — signs in via AT Protocol / Tangled OAuth. Selects or creates a Tangled repo (the deployment target). The agent can build and publish their site to that repo. Gets full Notch + agent access.
+
+Both paths converge on the same social layer:
+
+- **Notch widget** appears on every connected site. Shows reactions, overlay (FigJam-style stickers + comments anchored to page coordinates), follow button, and login prompt for logged-out visitors.
+- **SH (the hub — this app)** is the only centralized page: following list, new joiners, update feed, and discovery. Notch links back here for login and the feed.
+- **Agent** is persistent per site. Tangled users can open it from the hub ("Edit") or from Notch settings. It works on the current state of the site and can also customize Notch CSS.
+
+Login flow from a third-party site: visitor clicks login in Notch → redirect to SH → auth → return to original site, now logged in.
+
+## Routes
+
+```
+/notch.js                   Notch widget JS (built by Bun/bunup, served as static)
+/notch/test                 Dev playground — mock site with Notch injected
+
+/                           SH hub: following list (must), new joiners (must),
+                              update feed (nice), discovery
+/callback                   AT Protocol OAuth callback
+/u/:domain/builder          Agent for building/editing the site    [planned]
+/u/:domain/*                Other per-site pages                   [planned]
+/messages                   Messaging stub (icon only, no real chat) [planned]
+
+/api/auth/*                 BetterAuth handler (email/pass, Google, session)
+/api/oauth/client-metadata  AT Protocol client metadata JSON
+/api/agent/session          Create / fetch managed agent session
+/api/agent/message          Send message to agent
+/api/agent/stream           Stream agent responses (SSE)
+/api/notch/*                Public API used by the Notch widget (auth via cookies,
+                              works cross-origin on any integrated site)  [planned]
+```
+
+Current stubs to rework: `/agent` → `/u/:domain/builder`, `/dashboard` / `/repos` / `/select-repo` → onboarding flow.
 
 ## Architecture
 
 ```
-app/page.tsx            login
-app/callback/page.tsx   AT Protocol OAuth callback → stores session → /repos
-app/repos/page.tsx      repo list + SSH key management (client-side, atcute)
+notch/src/              Notch widget source (React + inline CSS)
+notch/bunup.config.ts   Builds to ../public/notch.js
 
-app/api/auth/[...all]/  BetterAuth handler (email/pass, Google, session mgmt)
-app/api/oauth/client-metadata/  AT Protocol client metadata JSON
+src/routes/__root.tsx   Root layout
+src/routes/index.tsx    Hub home (/)
+src/routes/callback.tsx AT Protocol OAuth callback
+src/routes/agent.tsx    Agent UI (temp — will become /u/:domain/builder)
+src/routes/notch/test   Dev playground
+src/routes/api/agent/   SSE + session + message API routes
+src/routes/api/oauth/   AT Protocol client metadata
 
-lib/auth.ts             BetterAuth server config
-lib/auth-client.ts      BetterAuth browser client (useSession, signIn, signOut)
-lib/oauth.ts            ensureOAuthConfigured() — atcute identity resolvers
-lib/tangled.ts          listRepos / listSshKeys / addSshKey via XRPC
-lib/db/schema.ts        Drizzle schema (source of truth)
-lib/db/index.ts         postgres.js + Drizzle instance
+src/lib/auth.server.ts      BetterAuth server config
+src/lib/auth-client.ts      BetterAuth browser client (useSession, signIn, signOut)
+src/lib/oauth.ts            ensureOAuthConfigured() — atcute identity resolvers
+src/lib/tangled.ts          listRepos / addSshKey / XRPC helpers
+src/lib/agent.server.ts     Anthropic Managed Agents integration
+src/lib/session-fns.ts      TanStack server functions for session access
+src/db/schema.ts            Drizzle schema (source of truth)
 ```
 
 ## Schema
 
 ```
-user         id(text) · email · name · emailVerified · atpDid · atpHandle
-session      BetterAuth managed
-account      BetterAuth managed (Google OAuth tokens, passwords)
-verification BetterAuth managed (email verification)
-website      id(uuid) · userId → user · domain(unique)
+user              id · email · name · emailVerified · image
+session           BetterAuth managed
+account           BetterAuth managed (Google OAuth tokens, passwords)
+verification      BetterAuth managed
+tangledIdentity   did(pk) · handle · userId → user · selectedRepo{Uri,Name,Knot}
+agentSession      id · userId(unique) → user · sessionId (Anthropic session)
+website           id · userId → user · did → tangledIdentity · repo{Uri,Name,Knot}
+                    · domain(unique) · status(draft|building|live|error) · buildLog
 ```
-
-`atpDid` / `atpHandle` on `user` are set when signing in via Tangled OAuth.
-Tangled OAuth is a custom flow (AT Protocol's auth server is per-user/dynamic, so
-BetterAuth's genericOAuth can't handle it). After `finalizeAuthorization()`, we
-look up or create a user by DID and create a BetterAuth session manually.
 
 ## Auth providers
 
@@ -48,23 +84,25 @@ look up or create a user by DID and create a BetterAuth session manually.
 |----------|-----|
 | Email/password | BetterAuth built-in |
 | Google | BetterAuth socialProviders.google |
-| Tangled (AT Protocol) | Custom flow: atcute → `/api/auth/atp` → BetterAuth session |
+| Tangled (AT Protocol) | Custom flow: atcute → `/callback` → BetterAuth session |
+
+Tangled OAuth is a custom flow because AT Protocol auth servers are per-user/dynamic — BetterAuth's genericOAuth can't handle it. After `finalizeAuthorization()`, we look up or create a `tangledIdentity` by DID and create a BetterAuth session manually.
 
 ## Stack
 
-- Next.js 16 + Tailwind v4 + TypeScript
+- TanStack Start (Vite + React) + Tailwind v4 + TypeScript
 - BetterAuth 1.6 — auth, sessions, DB-backed
 - `@atcute/oauth-browser-client` — AT Protocol OAuth (browser, DPoP)
 - `@atcute/identity-resolver` — handle/DID resolution (DOH + well-known + PLC)
 - `@atcute/tangled` + `@atcute/atproto` — XRPC typed client + lexicons
+- Anthropic Managed Agents SDK — persistent per-user agent sessions
 - Drizzle ORM + postgres.js → Aiven PostgreSQL 17
+- bunup — Notch widget bundler (outputs `public/notch.js`)
 
 ## Dev notes
 
-- Run: `bun run dev` (uses `node node_modules/next/dist/bin/next` directly — `.bin/next` broken on Node v24)
-- Schema changes: edit `lib/db/schema.ts` → `bunx drizzle-kit push`
-- Drizzle config reads `.env.local` via dotenv
-- Tailwind config in `app/globals.css` via `@theme inline` — no `tailwind.config.js`
-- Import `@atcute/atproto` and `@atcute/tangled` at module top to register ambient XRPC types
-- Google + `BETTER_AUTH_SECRET` + `BETTER_AUTH_URL` needed in `.env.local`
-- AT Protocol `client_id` must be publicly reachable → ngrok in dev
+- Run: `bun run dev`
+- Notch widget: `cd notch && bun run dev` (watches + copies to `public/notch.js`)
+- Schema changes: edit `src/db/schema.ts` → `bunx drizzle-kit push`
+- AT Protocol `client_id` must be publicly reachable → use ngrok in dev
+- Required env: `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `DATABASE_URL`, `ANTHROPIC_API_KEY`

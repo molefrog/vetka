@@ -1,11 +1,12 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { getAuthSession } from '../lib/session-fns'
+import { getTangledIdentity } from '../lib/session-fns'
 import { cn } from '../lib/cn'
 
-export const Route = createFileRoute('/agent')({ component: AgentPage })
+export const Route = createFileRoute('/agent')({ component: BuilderPage })
 
-type MessageRole = 'user' | 'agent' | 'tool' | 'system'
+type MessageRole = 'user' | 'agent' | 'tool'
 
 interface ChatMessage {
   id: string
@@ -14,16 +15,16 @@ interface ChatMessage {
   toolName?: string
 }
 
-function AgentPage() {
+function BuilderPage() {
   const router = useRouter()
   const [ready, setReady] = useState(false)
+  const [siteUrl, setSiteUrl] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [agentRunning, setAgentRunning] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const esRef = useRef<EventSource | null>(null)
-  const currentAgentMsgRef = useRef<string | null>(null)
 
   useEffect(() => {
     async function init() {
@@ -32,7 +33,10 @@ function AgentPage() {
         router.navigate({ to: '/' })
         return
       }
-      // Ensure session exists
+      const identity = await getTangledIdentity()
+      if (identity?.selectedRepoKnot && identity?.handle) {
+        setSiteUrl(`https://${identity.handle}.${identity.selectedRepoKnot}`)
+      }
       await fetch('/api/agent/session')
       setReady(true)
     }
@@ -41,31 +45,12 @@ function AgentPage() {
 
   useEffect(() => {
     if (!ready) return
-
     const es = new EventSource('/api/agent/stream')
     esRef.current = es
 
-    es.addEventListener('history', (e) => {
-      const evt = JSON.parse(e.data)
-      handleEvent(evt, true)
-    })
-
-    es.addEventListener('history_end', () => {
-      // done replaying history
-    })
-
-    es.addEventListener('event', (e) => {
-      const evt = JSON.parse(e.data)
-      handleEvent(evt, false)
-    })
-
-    es.addEventListener('error', () => {
-      // reconnect automatically (EventSource does this)
-    })
-
-    return () => {
-      es.close()
-    }
+    es.addEventListener('history', (e) => handleEvent(JSON.parse(e.data), true))
+    es.addEventListener('event', (e) => handleEvent(JSON.parse(e.data), false))
+    return () => es.close()
   }, [ready])
 
   useEffect(() => {
@@ -78,12 +63,8 @@ function AgentPage() {
     if (type === 'session.status_running' || type === 'session.thread_status_running') {
       if (!isHistory) setAgentRunning(true)
     }
-
     if (type === 'session.status_idle' || type === 'session.thread_status_idle') {
-      if (!isHistory) {
-        setAgentRunning(false)
-        currentAgentMsgRef.current = null
-      }
+      if (!isHistory) setAgentRunning(false)
     }
 
     if (type === 'user.message') {
@@ -91,35 +72,23 @@ function AgentPage() {
       const text = content.find((c) => c.type === 'text')?.text ?? ''
       if (text) {
         const id = `user-${(evt as Record<string, string>).id ?? Date.now()}`
-        setMessages((prev) => {
-          if (prev.some((m) => m.id === id)) return prev
-          return [...prev, { id, role: 'user', text }]
-        })
+        setMessages((prev) => prev.some((m) => m.id === id) ? prev : [...prev, { id, role: 'user', text }])
       }
     }
 
     if (type === 'agent.message') {
       const content = (evt.content as Array<{ type: string; text?: string }>) ?? []
-      const text = content
-        .filter((c) => c.type === 'text')
-        .map((c) => c.text ?? '')
-        .join('')
+      const text = content.filter((c) => c.type === 'text').map((c) => c.text ?? '').join('')
       if (text) {
         const id = `agent-${(evt as Record<string, string>).id ?? Date.now()}`
-        setMessages((prev) => {
-          if (prev.some((m) => m.id === id)) return prev
-          return [...prev, { id, role: 'agent', text }]
-        })
+        setMessages((prev) => prev.some((m) => m.id === id) ? prev : [...prev, { id, role: 'agent', text }])
       }
     }
 
     if (type === 'agent.tool_use') {
       const name = (evt as Record<string, string>).name ?? 'tool'
       const id = `tool-${(evt as Record<string, string>).id ?? Date.now()}`
-      setMessages((prev) => {
-        if (prev.some((m) => m.id === id)) return prev
-        return [...prev, { id, role: 'tool', text: '', toolName: name }]
-      })
+      setMessages((prev) => prev.some((m) => m.id === id) ? prev : [...prev, { id, role: 'tool', text: '', toolName: name }])
     }
   }
 
@@ -149,96 +118,115 @@ function AgentPage() {
 
   if (!ready) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-sm text-zinc-400">Starting agent…</p>
+      <div className="h-screen flex items-center justify-center bg-white text-sm text-zinc-400">
+        Starting…
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-zinc-50">
-      {/* Header */}
-      <div className="shrink-0 border-b border-zinc-200 bg-white px-4 py-3 flex items-center gap-3">
-        <button
-          onClick={() => router.navigate({ to: '/dashboard' })}
-          className="text-sm text-zinc-400 hover:text-zinc-900 transition-colors"
-        >
-          ← Dashboard
-        </button>
-        <div className="flex items-center gap-2 ml-auto">
-          <div className={cn('w-2 h-2 rounded-full', agentRunning ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-300')} />
-          <span className="text-sm text-zinc-500">{agentRunning ? 'Running…' : 'Idle'}</span>
+    <div className="h-screen flex flex-col bg-white text-black text-sm">
+
+      {/* Navbar */}
+      <nav className="border-b border-black px-4 h-9 flex items-center shrink-0">
+        <a href="/" className="text-zinc-500 hover:text-black underline underline-offset-2">← vetka</a>
+        <span className="ml-4">Site builder</span>
+        <div className="ml-auto flex items-center gap-2">
+          <div className={cn('w-1.5 h-1.5', agentRunning ? 'bg-black' : 'bg-zinc-300')} />
+          <span className="text-zinc-400">{agentRunning ? 'Running…' : 'Idle'}</span>
         </div>
-      </div>
+      </nav>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4 max-w-3xl mx-auto w-full">
-        {messages.length === 0 && (
-          <div className="text-center text-zinc-400 text-sm mt-20">
-            <p className="text-2xl mb-3">👋</p>
-            <p>Your personal website builder.</p>
-            <p className="mt-1 text-xs">Tell me what you want to build.</p>
-          </div>
-        )}
+      {/* Split: preview + chat */}
+      <div className="flex flex-1 overflow-hidden">
 
-        {messages.map((msg) => (
-          <div key={msg.id} className={cn('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}>
-            {msg.role === 'tool' ? (
-              <div className="flex items-center gap-2 text-xs text-zinc-400 bg-zinc-100 rounded-lg px-3 py-1.5">
-                <span className="text-zinc-300">⚙</span>
-                <span>{msg.toolName}</span>
-              </div>
+        {/* Website preview */}
+        <div className="flex-1 border-r border-black flex flex-col">
+          <div className="border-b border-black px-4 h-8 flex items-center text-xs text-zinc-500 shrink-0">
+            {siteUrl ? (
+              <a href={siteUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+                {siteUrl}
+              </a>
             ) : (
-              <div
-                className={cn(
-                  'max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap',
-                  msg.role === 'user'
-                    ? 'bg-zinc-900 text-white rounded-br-sm'
-                    : 'bg-white border border-zinc-200 text-zinc-900 rounded-bl-sm',
-                )}
-              >
-                {msg.text}
-              </div>
+              <span>Preview</span>
             )}
           </div>
-        ))}
-
-        {agentRunning && messages[messages.length - 1]?.role !== 'tool' && (
-          <div className="flex justify-start">
-            <div className="bg-white border border-zinc-200 rounded-2xl rounded-bl-sm px-4 py-3 flex gap-1">
-              {[0, 1, 2].map((i) => (
-                <div
-                  key={i}
-                  className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce"
-                  style={{ animationDelay: `${i * 0.15}s` }}
-                />
-              ))}
+          {siteUrl ? (
+            <iframe
+              src={siteUrl}
+              className="flex-1 w-full border-0"
+              title="Site preview"
+            />
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-zinc-400 flex-col gap-2">
+              <div>No site yet</div>
+              <div className="text-xs">Tell the agent what to build →</div>
             </div>
+          )}
+        </div>
+
+        {/* Chat panel */}
+        <div className="w-80 flex flex-col shrink-0">
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {messages.length === 0 && (
+              <div className="text-zinc-400 text-xs pt-4">
+                Tell me what to build. I can create and edit your site.
+              </div>
+            )}
+
+            {messages.map((msg) => (
+              <div key={msg.id}>
+                {msg.role === 'tool' ? (
+                  <div className="text-xs text-zinc-400 border border-zinc-200 px-2 py-1">
+                    ⚙ {msg.toolName}
+                  </div>
+                ) : (
+                  <div className={cn(
+                    msg.role === 'user' ? 'ml-4 text-right' : 'mr-4'
+                  )}>
+                    <div className={cn(
+                      'inline-block px-3 py-2 text-sm whitespace-pre-wrap leading-relaxed',
+                      msg.role === 'user'
+                        ? 'bg-black text-white'
+                        : 'border border-black bg-white'
+                    )}>
+                      {msg.text}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {agentRunning && (
+              <div className="mr-4">
+                <div className="inline-block border border-black px-3 py-2">
+                  <span className="text-zinc-400 text-xs">…</span>
+                </div>
+              </div>
+            )}
+
+            <div ref={bottomRef} />
           </div>
-        )}
 
-        <div ref={bottomRef} />
-      </div>
-
-      {/* Input */}
-      <div className="shrink-0 border-t border-zinc-200 bg-white px-4 py-3">
-        <div className="max-w-3xl mx-auto flex gap-2">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Message your agent…"
-            rows={1}
-            className="flex-1 resize-none px-3 py-2 text-sm rounded-xl border border-zinc-200 focus:border-zinc-400 outline-none transition-colors bg-zinc-50"
-            style={{ maxHeight: 120, overflowY: 'auto' }}
-          />
-          <button
-            onClick={sendMessage}
-            disabled={!input.trim() || sending}
-            className="px-4 py-2 text-sm font-medium rounded-xl bg-zinc-900 text-white hover:bg-zinc-700 disabled:opacity-40 transition-colors self-end"
-          >
-            Send
-          </button>
+          {/* Input */}
+          <div className="border-t border-black p-3 shrink-0">
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Message…"
+              rows={3}
+              className="w-full resize-none border border-black px-2 py-1.5 text-sm outline-none block"
+            />
+            <button
+              onClick={sendMessage}
+              disabled={!input.trim() || sending}
+              className="mt-2 w-full py-1.5 bg-black text-white text-sm disabled:opacity-40 hover:opacity-80"
+            >
+              Send
+            </button>
+          </div>
         </div>
       </div>
     </div>
