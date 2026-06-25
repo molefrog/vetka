@@ -1,48 +1,77 @@
 import { useState, useEffect, useRef, type CSSProperties } from 'react'
+import { Facehash } from 'facehash'
 import { NotchIcon, type IconName } from './NotchIcon'
 
 // Frost — dark glass (the recommended universal default, per local-drafts/README.md).
-// Survives pure white, body text, and photos where the light-tinted glass disappears.
 const FROST = {
   surface: 'rgba(20,20,26,.42)',
   ink: '#ffffff',
   logo: '#ffffff',
-  radius: 22,
   border: '1px solid rgba(255,255,255,.16)',
   shadow: '0 10px 30px rgba(0,0,0,.24)',
   blur: 'blur(16px) saturate(170%)',
   hoverBg: 'rgba(255,255,255,.14)',
-  divider: 'rgba(255,255,255,.20)',
   tipBg: 'rgba(10,10,14,.82)',
   tipInk: '#ffffff',
   tipChipBg: 'rgba(255,255,255,.18)',
+  avatarBg: 'rgba(255,255,255,.12)',
 }
+
+// The viewer's relationship to the page the notch is embedded on.
+//   anonymous — logged out
+//   owner     — logged in, viewing their own site
+//   visitor   — logged in, viewing someone else's site
+export type NotchMode = 'anonymous' | 'owner' | 'visitor'
 
 interface User {
   name: string
   email: string
+  image?: string | null
 }
 
 interface Props {
   apiBase: string
+  // Dev override to preview a specific state (?notch=owner etc). When unset the
+  // mode is derived from auth (owner detection needs the server — see /me).
+  forceMode?: NotchMode | null
 }
 
-type Item = {
-  key: IconName
-  label: string
-  sc: string | null
+// A trailing slot is either an icon button or the avatar (signed-in account).
+type Slot =
+  | { id: string; kind: 'icon'; key: IconName; label: string; sc: string | null }
+  | { id: string; kind: 'avatar'; label: string }
+
+const i = (key: IconName, label: string, sc: string | null = null): Slot => ({
+  id: key,
+  kind: 'icon',
+  key,
+  label,
+  sc,
+})
+const avatar = (): Slot => ({ id: 'avatar', kind: 'avatar', label: 'Account' })
+
+const MODES: Record<NotchMode, Slot[]> = {
+  // 1. Not logged in: log in + who this site's owner follows.
+  anonymous: [i('login', 'Log in'), i('follows', 'Following')],
+  // 2. Logged in, own site: feed, messages, reactions overlay, avatar.
+  owner: [
+    i('feed', 'Updates', 'U'),
+    i('messages', 'Messages', 'M'),
+    i('reactions', 'Reactions'),
+    avatar(),
+  ],
+  // 3. Logged in, someone else's site: follow, react, reactions, feed, messages, avatar.
+  visitor: [
+    i('follow', 'Follow'),
+    i('react', 'React'),
+    i('reactions', 'Reactions'),
+    i('feed', 'Updates', 'U'),
+    i('messages', 'Messages', 'M'),
+    avatar(),
+  ],
 }
 
-// Order + labels + shortcuts from NotchFrame.dc.html's `base`.
-const ITEMS: Item[] = [
-  { key: 'feed', label: 'Updates', sc: 'U' },
-  { key: 'messages', label: 'Messages', sc: 'M' },
-  { key: 'following', label: 'Following', sc: 'F' },
-  { key: 'stamp', label: 'Leave a stamp', sc: 'S' },
-  { key: 'more', label: 'More', sc: null },
-]
-
-const ICON_BTN: CSSProperties = {
+const BTN: CSSProperties = {
   position: 'relative',
   width: 32,
   height: 32,
@@ -59,11 +88,43 @@ const ICON_BTN: CSSProperties = {
   color: FROST.ink,
 }
 
-export function Widget({ apiBase }: Props) {
+// Renders a real photo when `src` loads, otherwise a deterministic facehash
+// avatar seeded by `seed` — masked into the 32px circle.
+function Avatar({ src, seed }: { src?: string; seed: string }) {
+  const [broken, setBroken] = useState(false)
+  const showImg = !!src && !broken
+  return (
+    <div
+      style={{
+        width: 32,
+        height: 32,
+        borderRadius: 999,
+        overflow: 'hidden',
+        flex: '0 0 auto',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: FROST.avatarBg,
+      }}
+    >
+      {showImg ? (
+        <img
+          src={src}
+          alt=""
+          onError={() => setBroken(true)}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        />
+      ) : (
+        <Facehash name={seed} size={32} interactive={false} />
+      )}
+    </div>
+  )
+}
+
+export function Widget({ apiBase, forceMode }: Props) {
   const [expanded, setExpanded] = useState(false)
-  const [tip, setTip] = useState<IconName | null>(null)
-  const [hovered, setHovered] = useState<IconName | null>(null)
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [tip, setTip] = useState<string | null>(null)
+  const [hovered, setHovered] = useState<string | null>(null)
   const [user, setUser] = useState<User | null | undefined>(undefined)
 
   useEffect(() => {
@@ -73,37 +134,36 @@ export function Widget({ apiBase }: Props) {
       .catch(() => setUser(null))
   }, [apiBase])
 
-  const loading = user === undefined
   const loggedIn = !!user
+  const mode: NotchMode = forceMode ?? (loggedIn ? 'visitor' : 'anonymous')
+  const slots = MODES[mode]
+
+  // Favicon of the embedding site as the avatar source (owner = this page).
+  const faviconUrl =
+    typeof window !== 'undefined' ? `${window.location.origin}/favicon.ico` : ''
 
   const tipTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
   const clearTipTimer = () => {
     if (tipTimer.current) {
       clearTimeout(tipTimer.current)
       tipTimer.current = null
     }
   }
-
-  // Flash an icon's description, then let it "pop off" after ~1s even while the
-  // pointer stays — a quick peek, as if guessing what the button is for.
-  const peekTip = (key: IconName) => {
+  // Flash a description, then let it "pop off" after ~1s — a quick peek.
+  const peekTip = (id: string) => {
     clearTipTimer()
-    setTip(key)
+    setTip(id)
     tipTimer.current = setTimeout(() => {
       setTip(null)
       tipTimer.current = null
     }, 1000)
   }
-
-  // Clear any pending timer when the widget unmounts.
   useEffect(() => clearTipTimer, [])
 
   const collapse = () => {
     setExpanded(false)
     setTip(null)
     setHovered(null)
-    setMenuOpen(false)
     clearTipTimer()
   }
 
@@ -121,172 +181,85 @@ export function Widget({ apiBase }: Props) {
       onMouseEnter={() => setExpanded(true)}
       onMouseLeave={collapse}
     >
-      {/* Overflow / account popover — anchored above the bar, opened from "More". */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 'calc(100% + 10px)',
-          right: 0,
-          width: 220,
-          opacity: menuOpen ? 1 : 0,
-          transform: menuOpen
-            ? 'translateY(0) scale(1)'
-            : 'translateY(8px) scale(0.96)',
-          transition: 'opacity .15s ease, transform .15s ease',
-          pointerEvents: menuOpen ? 'auto' : 'none',
-          background: FROST.surface,
-          border: FROST.border,
-          boxShadow: FROST.shadow,
-          backdropFilter: FROST.blur,
-          WebkitBackdropFilter: FROST.blur,
-          borderRadius: 16,
-          color: FROST.ink,
-          boxSizing: 'border-box',
-          overflow: 'hidden',
-        }}
-      >
-        <div style={{ padding: 14 }}>
-          {loading ? (
-            <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,.4)' }}>
-              …
-            </p>
-          ) : loggedIn ? (
-            <div>
-              <p
-                style={{
-                  margin: '0 0 4px',
-                  fontSize: 10,
-                  textTransform: 'uppercase',
-                  letterSpacing: '.12em',
-                  color: 'rgba(255,255,255,.4)',
-                }}
-              >
-                Signed in as
-              </p>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: 14,
-                  fontWeight: 600,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {user!.name}
-              </p>
-              <p
-                style={{
-                  margin: '2px 0 0',
-                  fontSize: 12,
-                  color: 'rgba(255,255,255,.45)',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {user!.email}
-              </p>
-            </div>
-          ) : (
-            <div>
-              <p
-                style={{
-                  margin: '0 0 10px',
-                  fontSize: 13,
-                  color: 'rgba(255,255,255,.55)',
-                }}
-              >
-                Not signed in
-              </p>
-              <a
-                href={`${apiBase}/`}
-                style={{
-                  display: 'block',
-                  textAlign: 'center',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: FROST.ink,
-                  border: '1px solid rgba(255,255,255,.22)',
-                  borderRadius: 9,
-                  padding: '8px 12px',
-                  textDecoration: 'none',
-                }}
-              >
-                Sign in →
-              </a>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* The pill shell */}
+      {/* The shell: a logo circle when closed, a pill row when expanded. */}
       <div
         style={{
           display: 'inline-flex',
           alignItems: 'center',
-          flexDirection: 'row',
           padding: 5,
           background: FROST.surface,
           color: FROST.ink,
-          borderRadius: FROST.radius,
           border: FROST.border,
           boxShadow: FROST.shadow,
           backdropFilter: FROST.blur,
           WebkitBackdropFilter: FROST.blur,
+          borderRadius: expanded ? 22 : 999,
+          transition: expanded
+            ? 'border-radius .28s ease'
+            : 'border-radius .18s ease',
           boxSizing: 'border-box',
         }}
       >
-        {/* Logo button — the closed-state glyph, always present */}
+        {/* Logo — closed-state glyph; collapses away as the notch expands. */}
         <div
           style={{
-            width: 32,
-            height: 32,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            borderRadius: 9,
-            flex: '0 0 auto',
-            cursor: 'pointer',
+            height: 32,
             color: FROST.logo,
+            overflow: 'hidden',
+            maxWidth: expanded ? 0 : 32,
+            opacity: expanded ? 0 : 1,
+            transition: expanded
+              ? 'max-width .16s ease, opacity .12s ease'
+              : 'max-width .18s ease .04s, opacity .14s ease .04s',
           }}
         >
-          <NotchIcon name="logo" />
+          <div
+            style={{
+              width: 32,
+              height: 32,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flex: '0 0 auto',
+            }}
+          >
+            <NotchIcon name="logo" />
+          </div>
         </div>
 
-        {/* Trailing item group — collapses to width 0 when closed, expands on hover */}
+        {/* Trailing items — collapsed to width 0 when closed, expand on hover. */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: 4,
             overflow: expanded ? 'visible' : 'hidden',
-            maxWidth: expanded ? 360 : 0,
+            maxWidth: expanded ? 480 : 0,
             opacity: expanded ? 1 : 0,
-            marginLeft: expanded ? 4 : 0,
-            transition:
-              'max-width .2s ease, opacity .15s ease, margin-left .2s ease',
+            transition: expanded
+              ? 'max-width .28s ease, opacity .18s ease .12s'
+              : 'max-width .16s ease, opacity .1s ease',
           }}
         >
-          {ITEMS.map((item) => {
-            const isMore = item.key === 'more'
-            const active = isMore && menuOpen
-            const showTip = expanded && tip === item.key && !active
+          {slots.map((slot) => {
+            const showTip = expanded && tip === slot.id
             return (
               <button
-                key={item.key}
+                key={slot.id}
                 type="button"
-                onClick={isMore ? () => setMenuOpen((o) => !o) : undefined}
                 style={{
-                  ...ICON_BTN,
+                  ...BTN,
                   background:
-                    hovered === item.key || active
+                    hovered === slot.id && slot.kind === 'icon'
                       ? FROST.hoverBg
                       : 'transparent',
                 }}
                 onMouseEnter={() => {
-                  setHovered(item.key)
-                  peekTip(item.key)
+                  setHovered(slot.id)
+                  peekTip(slot.id)
                 }}
                 onMouseLeave={() => {
                   setHovered(null)
@@ -294,7 +267,17 @@ export function Widget({ apiBase }: Props) {
                   setTip(null)
                 }}
               >
-                <NotchIcon name={item.key} />
+                {slot.kind === 'avatar' ? (
+                  mode === 'owner' ? (
+                    // Owner: favicon of the current site, facehash fallback.
+                    <Avatar src={faviconUrl} seed={user?.email ?? 'anon'} />
+                  ) : (
+                    // Visitor: the viewer's own avatar from the API, facehash fallback.
+                    <Avatar src={user?.image ?? undefined} seed={user?.email ?? 'anon'} />
+                  )
+                ) : (
+                  <NotchIcon name={slot.key} />
+                )}
 
                 {showTip && (
                   <span
@@ -321,8 +304,8 @@ export function Widget({ apiBase }: Props) {
                       animation: 'notch-tip-in .12s ease-out',
                     }}
                   >
-                    <span>{item.label}</span>
-                    {item.sc && (
+                    <span>{slot.label}</span>
+                    {slot.kind === 'icon' && slot.sc && (
                       <span
                         style={{
                           fontSize: 10,
@@ -334,7 +317,7 @@ export function Widget({ apiBase }: Props) {
                           fontWeight: 500,
                         }}
                       >
-                        ⌘{item.sc}
+                        ⌘{slot.sc}
                       </span>
                     )}
                   </span>
