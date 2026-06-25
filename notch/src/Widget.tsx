@@ -68,6 +68,9 @@ interface Props {
   // Dev override to preview a specific state (?notch=owner etc). When unset the
   // mode is derived from auth (owner detection needs the server — see /me).
   forceMode?: NotchMode | null
+  // Dev override: treat this hostname as the current site instead of
+  // window.location.hostname (?notch-domain=example.com on the host page).
+  forceDomain?: string | null
 }
 
 // A trailing slot is either an icon button or the avatar (signed-in account).
@@ -172,7 +175,7 @@ function Tip({ children, style }: { children: ReactNode; style?: CSSProperties }
   )
 }
 
-export function Widget({ apiBase, forceMode }: Props) {
+export function Widget({ apiBase, forceMode, forceDomain }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [tip, setTip] = useState<string | null>(null)
   const [hovered, setHovered] = useState<string | null>(null)
@@ -201,7 +204,7 @@ export function Widget({ apiBase, forceMode }: Props) {
   // owner's real identity for the "message the owner" suggestion. Re-runs after
   // login because viewerIsOwner / viewerFollowsOwner depend on the session.
   const loadCtx = () => {
-    const host = typeof window !== 'undefined' ? window.location.hostname : ''
+    const host = forceDomain ?? (typeof window !== 'undefined' ? window.location.hostname : '')
     if (!host) return
     fetch(`${apiBase}/api/notch/site?domain=${encodeURIComponent(host)}`, {
       credentials: 'include',
@@ -214,7 +217,7 @@ export function Widget({ apiBase, forceMode }: Props) {
   useEffect(() => {
     loadUser()
     loadCtx()
-  }, [apiBase])
+  }, [apiBase, forceDomain])
 
   // Log in by handing off to the vetka home page (the widget runs cross-origin on
   // third-party sites and can't host the auth UI / OAuth redirects). The home page
@@ -359,14 +362,26 @@ export function Widget({ apiBase, forceMode }: Props) {
     return () => document.removeEventListener('keydown', onKey)
   }, [reactMode, pickerOpen])
 
+  const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const collapse = () => {
     setExpanded(false)
     setTip(null)
     setHovered(null)
     clearTipTimer()
   }
+  const scheduleCollapse = () => {
+    if (collapseTimer.current) clearTimeout(collapseTimer.current)
+    collapseTimer.current = setTimeout(collapse, 600)
+  }
+  const cancelCollapse = () => {
+    if (collapseTimer.current) {
+      clearTimeout(collapseTimer.current)
+      collapseTimer.current = null
+    }
+  }
+  useEffect(() => cancelCollapse, [])
 
-  const domain = typeof window !== 'undefined' ? window.location.hostname : ''
+  const domain = forceDomain ?? (typeof window !== 'undefined' ? window.location.hostname : '')
   const pageUrl = typeof window !== 'undefined' ? window.location.href : ''
 
   return (
@@ -381,9 +396,9 @@ export function Widget({ apiBase, forceMode }: Props) {
         display: 'flex',
         alignItems: 'flex-end',
       }}
-      onMouseEnter={() => setExpanded(true)}
+      onMouseEnter={() => { cancelCollapse(); setExpanded(true) }}
       onMouseLeave={() => {
-        if (!openPanel) collapse()
+        if (!openPanel) scheduleCollapse()
       }}
     >
       {openPanel === 'messages' && (

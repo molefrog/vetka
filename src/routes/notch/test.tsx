@@ -1,35 +1,71 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 export const Route = createFileRoute('/notch/test')({
   component: NotchTestPage,
 })
 
+interface DomainEntry {
+  domain: string
+  mine: boolean
+}
+
 function NotchTestPage() {
+  const [domains, setDomains] = useState<DomainEntry[]>([])
+  const [activeDomain, setActiveDomain] = useState<string | null>(null)
+
+  // Read ?notch-domain from URL
+  const searchParams =
+    typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams()
+  const urlDomain = searchParams.get('notch-domain')
+  const urlMode = searchParams.get('notch')
+
+  // Fetch available domains and auto-pick on first load
+  useEffect(() => {
+    fetch('/api/notch/dev/domains', { credentials: 'include' })
+      .then((r) => r.json())
+      .then((list: DomainEntry[]) => {
+        setDomains(list)
+        // If no domain in URL yet, auto-select the best one (mine first)
+        if (!urlDomain && list.length > 0) {
+          const best = list.find((d) => d.mine) ?? list[0]
+          const next = new URLSearchParams(window.location.search)
+          next.set('notch-domain', best.domain)
+          window.history.replaceState(null, '', `?${next.toString()}`)
+          setActiveDomain(best.domain)
+        } else {
+          setActiveDomain(urlDomain)
+        }
+      })
+      .catch(() => setActiveDomain(urlDomain))
+  }, [])
+
+  // Load the widget script (cache-busted so dev changes show immediately)
   useEffect(() => {
     const script = document.createElement('script')
     script.src = `/notch.js?t=${Date.now()}`
     script.type = 'module'
     document.body.appendChild(script)
-    return () => {
-      document.body.removeChild(script)
-    }
+    return () => { document.body.removeChild(script) }
   }, [])
 
-  const current =
-    typeof window !== 'undefined'
-      ? new URLSearchParams(window.location.search).get('notch')
-      : null
+  const navigateTo = (domain: string | null, mode: string | null) => {
+    const next = new URLSearchParams()
+    if (domain) next.set('notch-domain', domain)
+    if (mode) next.set('notch', mode)
+    window.location.href = `?${next.toString()}`
+  }
+
   const modes = [
     { key: null, label: 'Auto' },
-    { key: 'anonymous', label: '1 · Anonymous' },
-    { key: 'owner', label: '2 · Owner' },
-    { key: 'visitor', label: '3 · Visitor' },
+    { key: 'anonymous', label: 'Anonymous' },
+    { key: 'owner', label: 'Owner' },
+    { key: 'visitor', label: 'Visitor' },
   ] as const
 
   return (
     <div style={{ minHeight: '100vh', background: '#fff', color: '#111', fontFamily: "'Georgia', serif" }}>
-      {/* Dev-only notch state switcher (not part of the product) */}
+      {/* Dev control strip */}
       <div
         style={{
           position: 'fixed',
@@ -37,33 +73,102 @@ function NotchTestPage() {
           left: 12,
           zIndex: 2147483646,
           display: 'flex',
+          flexDirection: 'column',
           gap: 6,
-          padding: 6,
-          background: 'rgba(20,20,26,.85)',
-          borderRadius: 10,
+          padding: 8,
+          background: 'rgba(12,12,18,.90)',
+          borderRadius: 12,
           fontFamily: '-apple-system, sans-serif',
+          backdropFilter: 'blur(10px)',
+          minWidth: 180,
         }}
       >
-        {modes.map((m) => {
-          const active = (m.key ?? null) === (current ?? null)
-          return (
-            <a
-              key={m.label}
-              href={m.key ? `?notch=${m.key}` : '?'}
-              style={{
-                fontSize: 12,
-                padding: '5px 10px',
-                borderRadius: 6,
-                textDecoration: 'none',
-                color: active ? '#111' : '#fff',
-                background: active ? '#fff' : 'transparent',
-                fontWeight: active ? 700 : 500,
-              }}
-            >
-              {m.label}
-            </a>
-          )
-        })}
+        {/* Domain picker */}
+        {domains.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.07em', textTransform: 'uppercase', color: 'rgba(255,255,255,.35)', padding: '2px 4px' }}>
+              Site
+            </span>
+            {domains.map((d) => {
+              const active = d.domain === (activeDomain ?? urlDomain)
+              return (
+                <button
+                  key={d.domain}
+                  type="button"
+                  onClick={() => navigateTo(d.domain, urlMode)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    fontSize: 12,
+                    padding: '5px 8px',
+                    borderRadius: 7,
+                    border: 'none',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    color: active ? '#111' : '#fff',
+                    background: active ? '#fff' : 'transparent',
+                    fontWeight: active ? 700 : 400,
+                  }}
+                >
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {d.domain}
+                  </span>
+                  {d.mine && (
+                    <span style={{
+                      fontSize: 9,
+                      fontWeight: 700,
+                      letterSpacing: '.05em',
+                      textTransform: 'uppercase',
+                      padding: '2px 5px',
+                      borderRadius: 4,
+                      background: active ? 'rgba(0,0,0,.12)' : 'rgba(255,255,255,.18)',
+                      color: active ? '#111' : '#fff',
+                    }}>
+                      mine
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Divider */}
+        {domains.length > 0 && (
+          <div style={{ height: 1, background: 'rgba(255,255,255,.1)', margin: '2px 0' }} />
+        )}
+
+        {/* Mode override (escape hatch) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.07em', textTransform: 'uppercase', color: 'rgba(255,255,255,.35)', padding: '2px 4px' }}>
+            Force mode
+          </span>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {modes.map((m) => {
+              const active = (m.key ?? null) === (urlMode ?? null)
+              return (
+                <button
+                  key={m.label}
+                  type="button"
+                  onClick={() => navigateTo(activeDomain ?? urlDomain, m.key)}
+                  style={{
+                    fontSize: 11,
+                    padding: '4px 8px',
+                    borderRadius: 6,
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: active ? '#111' : 'rgba(255,255,255,.6)',
+                    background: active ? '#fff' : 'transparent',
+                    fontWeight: active ? 700 : 400,
+                  }}
+                >
+                  {m.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
       </div>
 
       <style>{`

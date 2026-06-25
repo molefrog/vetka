@@ -18,17 +18,16 @@ Run setup and clone the repo in parallel (outbound port 22 is blocked, so always
   wait
 
 ## Pushing changes
-After committing, push via the Vetka relay — the URL and auth token are in <vetka_context>:
+After committing, use the push_repo tool — do NOT use curl or SSH directly:
 
   cd /mnt/session/repo
   git add -A && git commit -m "your message"
-  git bundle create /tmp/push.bundle origin/main..HEAD
-  curl -sS -X POST <push_relay from vetka_context> \\
-    -H "Authorization: Bearer <session_id from vetka_context>" \\
-    -F bundle=@/tmp/push.bundle
-  # Returns: {"hash":"<commit-hash>","url":"<prod-url>"}
+  # Create the bundle and base64-encode it:
+  git bundle create /tmp/push.bundle origin/main..HEAD && base64 -w0 /tmp/push.bundle
+  # Then call push_repo with bundle_base64 = <the base64 output above>
 
-After a successful push, sync local clone so origin/main stays up to date:
+The tool returns {"hash":"<commit>","url":"<prod-url>"} on success.
+After a successful push, sync the local clone:
   git fetch origin && git reset --hard origin/main
 
 ## Screenshots
@@ -46,5 +45,26 @@ const updated = await client.beta.agents.update(AGENT_ID, {
   version: current.version,
   system: SYSTEM,
   model: 'claude-opus-4-8',
+  tools: [
+    {
+      type: 'agent_toolset_20260401',
+      default_config: { enabled: true, permission_policy: { type: 'always_allow' } },
+    },
+    {
+      type: 'custom',
+      name: 'push_repo',
+      description: 'Push committed changes to the live Tangled repo via the Vetka relay. Call this after committing. First create the bundle in bash: git bundle create /tmp/push.bundle origin/main..HEAD && base64 -w0 /tmp/push.bundle — then pass the base64 output as bundle_base64. Returns {"hash":"<commit>","url":"<prod-url>"} on success.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          bundle_base64: {
+            type: 'string',
+            description: 'Base64-encoded git bundle produced by: git bundle create /tmp/push.bundle origin/main..HEAD && base64 -w0 /tmp/push.bundle',
+          },
+        },
+        required: ['bundle_base64'],
+      },
+    },
+  ],
 })
 console.log('Updated to version:', updated.version)

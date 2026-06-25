@@ -13,6 +13,10 @@ const forceMode: NotchMode | null =
     ? forced
     : null
 
+// Dev-only domain override: ?notch-domain=<hostname> makes the widget query
+// a specific registered site instead of window.location.hostname.
+const forceDomain = new URLSearchParams(window.location.search).get('notch-domain') || null
+
 // Load the widget fonts:
 //  - Overused Grotesk (the Vetka brand body face) — self-hosted from the vetka origin so it
 //    works on third-party host pages. The .woff2 must be served with CORS (Access-Control-Allow-Origin).
@@ -37,5 +41,5 @@ if (!document.getElementById('notch-root')) {
   const container = document.createElement('div')
   container.id = 'notch-root'
   document.body.appendChild(container)
-  createRoot(container).render(<Widget apiBase={apiBase} forceMode={forceMode} />)
+  createRoot(container).render(<Widget apiBase={apiBase} forceMode={forceMode} forceDomain={forceDomain} />)
 }

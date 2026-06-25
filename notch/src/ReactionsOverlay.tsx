@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, type CSSProperties } from 'react'
+import { useState, useEffect, useMemo, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { db } from './instant'
 import type { Signal } from './reactions-data'

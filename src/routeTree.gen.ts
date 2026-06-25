@@ -29,6 +29,7 @@ import { Route as ApiAgentUploadRouteImport } from './routes/api/agent/upload'
 import { Route as ApiAgentStreamRouteImport } from './routes/api/agent/stream'
 import { Route as ApiAgentSessionRouteImport } from './routes/api/agent/session'
 import { Route as ApiAgentPushRouteImport } from './routes/api/agent/push'
+import { Route as ApiNotchDevDomainsRouteImport } from './routes/api/notch/dev/domains'
 import { Route as ApiNotchConversationsPeerIdRouteImport } from './routes/api/notch/conversations/$peerId'
 import { Route as ApiNotchConversationsPeerIdMessagesRouteImport } from './routes/api/notch/conversations/$peerId/messages'
 
@@ -132,6 +133,11 @@ const ApiAgentPushRoute = ApiAgentPushRouteImport.update({
   path: '/api/agent/push',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiNotchDevDomainsRoute = ApiNotchDevDomainsRouteImport.update({
+  id: '/api/notch/dev/domains',
+  path: '/api/notch/dev/domains',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiNotchConversationsPeerIdRoute =
   ApiNotchConversationsPeerIdRouteImport.update({
     id: '/$peerId',
@@ -167,6 +173,7 @@ export interface FileRoutesByFullPath {
   '/api/oauth/client-metadata': typeof ApiOauthClientMetadataRoute
   '/sites/$domain/builder': typeof SitesDomainBuilderRoute
   '/api/notch/conversations/$peerId': typeof ApiNotchConversationsPeerIdRouteWithChildren
+  '/api/notch/dev/domains': typeof ApiNotchDevDomainsRoute
   '/api/notch/conversations/$peerId/messages': typeof ApiNotchConversationsPeerIdMessagesRoute
 }
 export interface FileRoutesByTo {
@@ -191,6 +198,7 @@ export interface FileRoutesByTo {
   '/api/oauth/client-metadata': typeof ApiOauthClientMetadataRoute
   '/sites/$domain/builder': typeof SitesDomainBuilderRoute
   '/api/notch/conversations/$peerId': typeof ApiNotchConversationsPeerIdRouteWithChildren
+  '/api/notch/dev/domains': typeof ApiNotchDevDomainsRoute
   '/api/notch/conversations/$peerId/messages': typeof ApiNotchConversationsPeerIdMessagesRoute
 }
 export interface FileRoutesById {
@@ -216,6 +224,7 @@ export interface FileRoutesById {
   '/api/oauth/client-metadata': typeof ApiOauthClientMetadataRoute
   '/sites/$domain/builder': typeof SitesDomainBuilderRoute
   '/api/notch/conversations/$peerId': typeof ApiNotchConversationsPeerIdRouteWithChildren
+  '/api/notch/dev/domains': typeof ApiNotchDevDomainsRoute
   '/api/notch/conversations/$peerId/messages': typeof ApiNotchConversationsPeerIdMessagesRoute
 }
 export interface FileRouteTypes {
@@ -242,6 +251,7 @@ export interface FileRouteTypes {
     | '/api/oauth/client-metadata'
     | '/sites/$domain/builder'
     | '/api/notch/conversations/$peerId'
+    | '/api/notch/dev/domains'
     | '/api/notch/conversations/$peerId/messages'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -266,6 +276,7 @@ export interface FileRouteTypes {
     | '/api/oauth/client-metadata'
     | '/sites/$domain/builder'
     | '/api/notch/conversations/$peerId'
+    | '/api/notch/dev/domains'
     | '/api/notch/conversations/$peerId/messages'
   id:
     | '__root__'
@@ -290,6 +301,7 @@ export interface FileRouteTypes {
     | '/api/oauth/client-metadata'
     | '/sites/$domain/builder'
     | '/api/notch/conversations/$peerId'
+    | '/api/notch/dev/domains'
     | '/api/notch/conversations/$peerId/messages'
   fileRoutesById: FileRoutesById
 }
@@ -314,6 +326,7 @@ export interface RootRouteChildren {
   ApiNotchSiteRoute: typeof ApiNotchSiteRoute
   ApiOauthClientMetadataRoute: typeof ApiOauthClientMetadataRoute
   SitesDomainBuilderRoute: typeof SitesDomainBuilderRoute
+  ApiNotchDevDomainsRoute: typeof ApiNotchDevDomainsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -458,6 +471,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAgentPushRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/notch/dev/domains': {
+      id: '/api/notch/dev/domains'
+      path: '/api/notch/dev/domains'
+      fullPath: '/api/notch/dev/domains'
+      preLoaderRoute: typeof ApiNotchDevDomainsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/notch/conversations/$peerId': {
       id: '/api/notch/conversations/$peerId'
       path: '/$peerId'
@@ -525,6 +545,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiNotchSiteRoute: ApiNotchSiteRoute,
   ApiOauthClientMetadataRoute: ApiOauthClientMetadataRoute,
   SitesDomainBuilderRoute: SitesDomainBuilderRoute,
+  ApiNotchDevDomainsRoute: ApiNotchDevDomainsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
