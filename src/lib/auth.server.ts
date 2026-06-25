@@ -112,6 +112,8 @@ export const auth = betterAuth({
       }
     : {}),
   trustedOrigins: [
+    'https://vetka.sh',
+    'https://www.vetka.sh',
     'https://neko.puma-scylla.ts.net',
     'http://localhost:3000',
     'http://127.0.0.1:3000',
