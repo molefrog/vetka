@@ -55,3 +55,97 @@ export const saveSelectedRepo = createServerFn({ method: 'POST' })
       })
       .where(eq(tangledIdentity.userId, session.user.id))
   })
+
+// ---------------------------------------------------------------------------
+// Sites — the social entity
+// ---------------------------------------------------------------------------
+
+export const getUserSites = createServerFn({ method: 'GET' }).handler(async () => {
+  const { getRequest } = await import('@tanstack/react-start/server')
+  const { auth } = await import('./auth.server')
+  const session = await auth.api.getSession({ headers: getRequest().headers })
+  if (!session?.user) return []
+
+  const { db } = await import('../db')
+  const { site } = await import('../db/schema')
+  const { eq } = await import('drizzle-orm')
+
+  return db.select().from(site).where(eq(site.userId, session.user.id))
+})
+
+export const getUserSite = createServerFn({ method: 'GET' }).handler(async () => {
+  const { getRequest } = await import('@tanstack/react-start/server')
+  const { auth } = await import('./auth.server')
+  const session = await auth.api.getSession({ headers: getRequest().headers })
+  if (!session?.user) return null
+
+  const { db } = await import('../db')
+  const { site } = await import('../db/schema')
+  const { eq } = await import('drizzle-orm')
+
+  const rows = await db.select().from(site).where(eq(site.userId, session.user.id)).limit(1)
+  return rows[0] ?? null
+})
+
+export const createSite = createServerFn({ method: 'POST' })
+  .validator(
+    (d: {
+      domain: string
+      isTangled: boolean
+      did?: string
+      repoUri?: string
+      repoName?: string
+      repoKnot?: string
+    }) => d,
+  )
+  .handler(async ({ data }) => {
+    const { getRequest } = await import('@tanstack/react-start/server')
+    const { auth } = await import('./auth.server')
+    const session = await auth.api.getSession({ headers: getRequest().headers })
+    if (!session?.user) throw new Error('Not authenticated')
+
+    const { db } = await import('../db')
+    const { site } = await import('../db/schema')
+
+    const [created] = await db
+      .insert(site)
+      .values({
+        domain: data.domain,
+        userId: session.user.id,
+        isTangled: data.isTangled,
+        did: data.did,
+        repoUri: data.repoUri,
+        repoName: data.repoName,
+        repoKnot: data.repoKnot,
+        status: 'draft',
+      })
+      .returning()
+
+    return created
+  })
+
+// ---------------------------------------------------------------------------
+// Post-login redirect — decides where to send the user after auth
+// ---------------------------------------------------------------------------
+
+export const getPostLoginDestination = createServerFn({ method: 'GET' }).handler(async () => {
+  const { getRequest } = await import('@tanstack/react-start/server')
+  const { auth } = await import('./auth.server')
+  const session = await auth.api.getSession({ headers: getRequest().headers })
+  if (!session?.user) return '/' as const
+
+  const { db } = await import('../db')
+  const { site, tangledIdentity } = await import('../db/schema')
+  const { eq } = await import('drizzle-orm')
+
+  const sites = await db.select().from(site).where(eq(site.userId, session.user.id)).limit(1)
+  if (sites.length > 0) return '/' as const
+
+  const tangled = await db
+    .select()
+    .from(tangledIdentity)
+    .where(eq(tangledIdentity.userId, session.user.id))
+    .limit(1)
+
+  return (tangled.length > 0 ? '/setup/tangled' : '/setup/script') as const
+})

@@ -1,8 +1,9 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
+import { createFileRoute, useRouter } from '@tanstack/react-router'
+import { useEffect, useRef, useState } from 'react'
 import { createAuthorizationUrl } from '@atcute/oauth-browser-client'
 import { ensureOAuthConfigured } from '../lib/oauth'
 import { useSession, signIn, signOut, signUp } from '../lib/auth-client'
+import { getPostLoginDestination } from '../lib/session-fns'
 
 export const Route = createFileRoute('/')({ component: HomePage })
 
@@ -31,9 +32,7 @@ const NOTIFICATIONS = [
   { text: 'anna.tngl.sh started following you', time: '3h ago' },
 ]
 
-const NEW_MEMBERS = [
-  'cat.io', 'evan.xyz', 'igor.me', 'lena.io', 'petya.site',
-]
+const NEW_MEMBERS = ['cat.io', 'evan.xyz', 'igor.me', 'lena.io', 'petya.site']
 
 // ---------------------------------------------------------------------------
 // Page
@@ -42,13 +41,23 @@ const NEW_MEMBERS = [
 function HomePage() {
   const { data: session } = useSession()
   const [showLogin, setShowLogin] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   const user = session?.user
   const initial = user?.name?.[0]?.toUpperCase() ?? user?.email?.[0]?.toUpperCase()
 
+  useEffect(() => {
+    if (!menuOpen) return
+    function onClickOutside(e: MouseEvent) {
+      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [menuOpen])
+
   return (
     <div className="min-h-screen bg-white text-black text-sm">
-
       {/* Navbar */}
       <nav className="border-b border-black px-4 h-9 flex items-center shrink-0">
         <span>vetka</span>
@@ -56,14 +65,45 @@ function HomePage() {
           {user ? (
             <>
               <span className="text-zinc-500">{NOTIFICATIONS.length} notifications</span>
-              <a href="/agent" className="underline underline-offset-2">Edit site →</a>
-              <button
-                onClick={() => signOut()}
-                className="w-6 h-6 border border-black flex items-center justify-center text-xs"
-                title="Sign out"
-              >
-                {initial}
-              </button>
+              <a href="/sites" className="underline underline-offset-2">
+                Edit site →
+              </a>
+              <div ref={menuRef} className="relative">
+                <button
+                  onClick={() => setMenuOpen((o) => !o)}
+                  className="w-6 h-6 border border-black flex items-center justify-center text-xs hover:bg-zinc-50"
+                >
+                  {initial}
+                </button>
+                {menuOpen && (
+                  <div className="absolute right-0 top-full mt-px w-40 border border-black bg-white z-50">
+                    <a
+                      href="/sites"
+                      className="block px-3 py-2 hover:bg-zinc-50 border-b border-black"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      Edit site →
+                    </a>
+                    <a
+                      href="/sites"
+                      className="block px-3 py-2 hover:bg-zinc-50 border-b border-black"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      My sites
+                    </a>
+                    <button
+                      onClick={async () => {
+                        setMenuOpen(false)
+                        await signOut()
+                        window.location.reload()
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-zinc-50 text-zinc-500"
+                    >
+                      Log out
+                    </button>
+                  </div>
+                )}
+              </div>
             </>
           ) : (
             <button
@@ -77,14 +117,16 @@ function HomePage() {
       </nav>
 
       <div className="flex" style={{ minHeight: 'calc(100vh - 37px)' }}>
-
         {/* Feed */}
         <main className="flex-1 border-r border-black">
           <div className="border-b border-black px-4 h-8 flex items-center text-xs text-zinc-500">
             Global feed
           </div>
           {FEED.map((item, i) => (
-            <div key={i} className="border-b border-black px-4 py-2.5 flex items-baseline gap-2 hover:bg-zinc-50 cursor-default">
+            <div
+              key={i}
+              className="border-b border-black px-4 py-2.5 flex items-baseline gap-2 hover:bg-zinc-50 cursor-default"
+            >
               <span className="font-medium">{item.domain}</span>
               <span className="text-zinc-500">— {item.action}</span>
               <span className="ml-auto text-xs text-zinc-400 shrink-0">{item.time}</span>
@@ -94,7 +136,6 @@ function HomePage() {
 
         {/* Right sidebar */}
         <aside className="w-64 shrink-0">
-          {/* Notifications (logged in only) */}
           {user && (
             <>
               <div className="border-b border-black px-4 h-8 flex items-center text-xs text-zinc-500">
@@ -109,8 +150,6 @@ function HomePage() {
               <div className="h-4" />
             </>
           )}
-
-          {/* New members (always visible) */}
           <div className="border-b border-black px-4 h-8 flex items-center text-xs text-zinc-500">
             New members
           </div>
@@ -132,6 +171,7 @@ function HomePage() {
 // ---------------------------------------------------------------------------
 
 function LoginModal({ onClose }: { onClose: () => void }) {
+  const router = useRouter()
   const { data: session } = useSession()
   const [tab, setTab] = useState<'login' | 'signup'>('login')
   const [email, setEmail] = useState('')
@@ -157,6 +197,12 @@ function LoginModal({ onClose }: { onClose: () => void }) {
       } else {
         const res = await signIn.email({ email, password })
         if (res.error) throw new Error(res.error.message)
+      }
+      const dest = await getPostLoginDestination()
+      if (dest !== '/') {
+        router.navigate({ to: dest })
+      } else {
+        onClose()
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Authentication failed')
@@ -192,75 +238,78 @@ function LoginModal({ onClose }: { onClose: () => void }) {
         className="bg-white border border-black w-full max-w-xs"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Modal header */}
-        <div className="border-b border-black px-4 h-9 flex items-center text-sm">
-          <span>Sign in to Vetka</span>
-          <button
-            onClick={onClose}
-            className="ml-auto text-zinc-400 hover:text-black leading-none"
-          >
-            ×
-          </button>
+        {/* Tabs */}
+        <div className="border-b border-black flex">
+          {(['login', 'signup'] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => { setTab(t); setError(null) }}
+              className={`flex-1 h-9 text-sm border-r last:border-r-0 border-black ${
+                tab === t ? 'bg-black text-white' : 'hover:bg-zinc-50'
+              }`}
+            >
+              {t === 'login' ? 'Log in' : 'Sign up'}
+            </button>
+          ))}
         </div>
 
-        <div className="p-4 space-y-4 text-sm">
-          {/* Tab switch */}
-          <div className="flex border border-black">
-            {(['login', 'signup'] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => { setTab(t); setError(null) }}
-                className={`flex-1 py-1 ${tab === t ? 'bg-black text-white' : 'hover:bg-zinc-50'}`}
-              >
-                {t === 'login' ? 'Log in' : 'Sign up'}
-              </button>
-            ))}
-          </div>
-
-          {/* Email / password form */}
+        <div className="p-4 space-y-3">
           <form onSubmit={handleEmailSubmit} className="space-y-2">
             {tab === 'signup' && (
               <input
-                type="text" value={name} onChange={(e) => setName(e.target.value)}
-                placeholder="Name" required
-                className="w-full px-2 py-1.5 border border-black outline-none text-sm"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Name"
+                required
+                className="w-full px-2 py-1.5 text-sm border border-black outline-none focus:bg-zinc-50"
               />
             )}
             <input
-              type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email" required autoComplete="email"
-              className="w-full px-2 py-1.5 border border-black outline-none text-sm"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Email"
+              required
+              autoComplete="email"
+              className="w-full px-2 py-1.5 text-sm border border-black outline-none focus:bg-zinc-50"
             />
             <input
-              type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-              placeholder="Password" required
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+              required
               autoComplete={tab === 'signup' ? 'new-password' : 'current-password'}
-              className="w-full px-2 py-1.5 border border-black outline-none text-sm"
+              className="w-full px-2 py-1.5 text-sm border border-black outline-none focus:bg-zinc-50"
             />
             {error && <p className="text-xs text-red-600">{error}</p>}
             <button
-              type="submit" disabled={loading}
-              className="w-full py-1.5 bg-black text-white disabled:opacity-40 hover:opacity-80"
+              type="submit"
+              disabled={loading}
+              className="w-full py-1.5 text-sm bg-black text-white hover:bg-zinc-800 disabled:opacity-40"
             >
-              {loading ? '…' : tab === 'login' ? 'Log in' : 'Sign up'}
+              {loading ? '…' : tab === 'login' ? 'Log in' : 'Create account'}
             </button>
           </form>
 
-          {/* Tangled */}
-          <div className="border-t border-black pt-4 space-y-2">
-            <div className="text-xs text-zinc-500">or with Tangled handle</div>
+          <div className="border-t border-black pt-3">
             <form onSubmit={handleTangledSignIn} className="space-y-2">
               <input
-                type="text" value={handle} onChange={(e) => setHandle(e.target.value)}
-                placeholder="your.handle.tngl.sh"
-                autoCapitalize="none" autoComplete="off"
-                className="w-full px-2 py-1.5 border border-black outline-none text-sm"
+                type="text"
+                value={handle}
+                onChange={(e) => setHandle(e.target.value)}
+                placeholder="handle.tngl.sh"
+                autoCapitalize="none"
+                autoComplete="off"
+                className="w-full px-2 py-1.5 text-sm border border-black outline-none focus:bg-zinc-50"
               />
               <button
-                type="submit" disabled={!handle.trim() || loading}
-                className="w-full py-1.5 border border-black disabled:opacity-40 hover:bg-zinc-50"
+                type="submit"
+                disabled={!handle.trim() || loading}
+                className="w-full py-1.5 text-sm border border-black hover:bg-zinc-50 disabled:opacity-40"
               >
-                Continue with Tangled →
+                Continue with Tangled
               </button>
             </form>
           </div>

@@ -88,7 +88,9 @@ export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET,
   // Notch embeds on third-party sites and calls /api/notch/* with credentials.
   // SameSite=None;Secure is required for cookies to be sent cross-site.
-  advanced: isProd ? { cookieOptions: { sameSite: 'none', secure: true } } : {},
+  advanced: isProd
+    ? { cookieOptions: { sameSite: 'none', secure: true } }
+    : { disableCSRFCheck: true },
   database: drizzleAdapter(db, {
     provider: 'pg',
     schema: {

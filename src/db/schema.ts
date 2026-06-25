@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, uuid } from 'drizzle-orm/pg-core'
+import { pgTable, text, timestamp, boolean, uuid, uniqueIndex } from 'drizzle-orm/pg-core'
 
 // ---------------------------------------------------------------------------
 // better-auth core tables (email + Google)
@@ -56,27 +56,18 @@ export const verification = pgTable('verification', {
 
 // ---------------------------------------------------------------------------
 // Tangled / AT Protocol identity
-// Linked to a better-auth user OR standalone (did is the primary identity)
 // ---------------------------------------------------------------------------
 
 export const tangledIdentity = pgTable('tangled_identity', {
   did: text('did').primaryKey(),
   handle: text('handle').notNull(),
-  // null until user links to a better-auth account
   userId: text('user_id').references(() => user.id, { onDelete: 'set null' }),
-  // the repo chosen at sign-in that the agent will deploy to
   selectedRepoUri: text('selected_repo_uri'),
   selectedRepoName: text('selected_repo_name'),
   selectedRepoKnot: text('selected_repo_knot'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
-
-// Note: tangled_session table removed — Tangled users now use better-auth sessions
-
-// ---------------------------------------------------------------------------
-// Websites — one per user (regular) or per tangled identity
-// ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
 // Agent sessions — one persistent Anthropic Managed Agent session per user
@@ -94,23 +85,50 @@ export const agentSession = pgTable('agent_session', {
 })
 
 // ---------------------------------------------------------------------------
-// Websites
+// Sites — the primary social entity (one per tangled identity or external domain)
 // ---------------------------------------------------------------------------
 
-export const website = pgTable('website', {
+export const site = pgTable('site', {
   id: uuid('id').primaryKey().defaultRandom(),
-  // regular user path
-  userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
-  // tangled user path
-  did: text('did').references(() => tangledIdentity.did, { onDelete: 'cascade' }),
-  // deployment target (tangled repo)
+  domain: text('domain').notNull().unique(),
+  userId: text('user_id').references(() => user.id, { onDelete: 'set null' }),
+  isTangled: boolean('is_tangled').notNull().default(false),
+  did: text('did').references(() => tangledIdentity.did, { onDelete: 'set null' }),
   repoUri: text('repo_uri'),
   repoName: text('repo_name'),
   repoKnot: text('repo_knot'),
-  // custom domain (optional)
-  domain: text('domain').unique(),
   status: text('status').notNull().default('draft'), // draft | building | live | error
   buildLog: text('build_log'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
+})
+
+// Directed follow between two sites
+export const follow = pgTable(
+  'follow',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    followerId: uuid('follower_id')
+      .notNull()
+      .references(() => site.id, { onDelete: 'cascade' }),
+    followeeId: uuid('followee_id')
+      .notNull()
+      .references(() => site.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('follow_pair').on(t.followerId, t.followeeId)],
+)
+
+// Direct messages between sites
+export const message = pgTable('message', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  fromId: uuid('from_id')
+    .notNull()
+    .references(() => site.id, { onDelete: 'cascade' }),
+  toId: uuid('to_id')
+    .notNull()
+    .references(() => site.id, { onDelete: 'cascade' }),
+  body: text('body').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  readAt: timestamp('read_at'),
 })

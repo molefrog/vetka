@@ -2,6 +2,7 @@ import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { finalizeAuthorization } from '@atcute/oauth-browser-client'
 import { ensureOAuthConfigured } from '../lib/oauth'
+import { getPostLoginDestination } from '../lib/session-fns'
 
 export const Route = createFileRoute('/callback')({ component: CallbackPage })
 
@@ -37,7 +38,8 @@ function CallbackPage() {
           throw new Error((body as { message?: string }).message ?? `Sign-in failed (${res.status})`)
         }
 
-        router.navigate({ to: '/select-repo' })
+        const dest = await getPostLoginDestination()
+        router.navigate({ to: dest })
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Authorization failed')
       }

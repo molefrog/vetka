@@ -15,9 +15,14 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CallbackRouteImport } from './routes/callback'
 import { Route as AgentRouteImport } from './routes/agent'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SitesIndexRouteImport } from './routes/sites/index'
+import { Route as SetupTangledRouteImport } from './routes/setup/tangled'
+import { Route as SetupScriptRouteImport } from './routes/setup/script'
 import { Route as NotchTestRouteImport } from './routes/notch/test'
+import { Route as SitesDomainBuilderRouteImport } from './routes/sites/$domain/builder'
 import { Route as ApiOauthClientMetadataRouteImport } from './routes/api/oauth/client-metadata'
 import { Route as ApiNotchMeRouteImport } from './routes/api/notch/me'
+import { Route as ApiNotchCheckRouteImport } from './routes/api/notch/check'
 import { Route as ApiAgentStreamRouteImport } from './routes/api/agent/stream'
 import { Route as ApiAgentSessionRouteImport } from './routes/api/agent/session'
 import { Route as ApiAgentMessageRouteImport } from './routes/api/agent/message'
@@ -52,9 +57,29 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SitesIndexRoute = SitesIndexRouteImport.update({
+  id: '/sites/',
+  path: '/sites/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetupTangledRoute = SetupTangledRouteImport.update({
+  id: '/setup/tangled',
+  path: '/setup/tangled',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetupScriptRoute = SetupScriptRouteImport.update({
+  id: '/setup/script',
+  path: '/setup/script',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const NotchTestRoute = NotchTestRouteImport.update({
   id: '/notch/test',
   path: '/notch/test',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitesDomainBuilderRoute = SitesDomainBuilderRouteImport.update({
+  id: '/sites/$domain/builder',
+  path: '/sites/$domain/builder',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiOauthClientMetadataRoute = ApiOauthClientMetadataRouteImport.update({
@@ -65,6 +90,11 @@ const ApiOauthClientMetadataRoute = ApiOauthClientMetadataRouteImport.update({
 const ApiNotchMeRoute = ApiNotchMeRouteImport.update({
   id: '/api/notch/me',
   path: '/api/notch/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiNotchCheckRoute = ApiNotchCheckRouteImport.update({
+  id: '/api/notch/check',
+  path: '/api/notch/check',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAgentStreamRoute = ApiAgentStreamRouteImport.update({
@@ -91,11 +121,16 @@ export interface FileRoutesByFullPath {
   '/repos': typeof ReposRoute
   '/select-repo': typeof SelectRepoRoute
   '/notch/test': typeof NotchTestRoute
+  '/setup/script': typeof SetupScriptRoute
+  '/setup/tangled': typeof SetupTangledRoute
+  '/sites/': typeof SitesIndexRoute
   '/api/agent/message': typeof ApiAgentMessageRoute
   '/api/agent/session': typeof ApiAgentSessionRoute
   '/api/agent/stream': typeof ApiAgentStreamRoute
+  '/api/notch/check': typeof ApiNotchCheckRoute
   '/api/notch/me': typeof ApiNotchMeRoute
   '/api/oauth/client-metadata': typeof ApiOauthClientMetadataRoute
+  '/sites/$domain/builder': typeof SitesDomainBuilderRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -105,11 +140,16 @@ export interface FileRoutesByTo {
   '/repos': typeof ReposRoute
   '/select-repo': typeof SelectRepoRoute
   '/notch/test': typeof NotchTestRoute
+  '/setup/script': typeof SetupScriptRoute
+  '/setup/tangled': typeof SetupTangledRoute
+  '/sites': typeof SitesIndexRoute
   '/api/agent/message': typeof ApiAgentMessageRoute
   '/api/agent/session': typeof ApiAgentSessionRoute
   '/api/agent/stream': typeof ApiAgentStreamRoute
+  '/api/notch/check': typeof ApiNotchCheckRoute
   '/api/notch/me': typeof ApiNotchMeRoute
   '/api/oauth/client-metadata': typeof ApiOauthClientMetadataRoute
+  '/sites/$domain/builder': typeof SitesDomainBuilderRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -120,11 +160,16 @@ export interface FileRoutesById {
   '/repos': typeof ReposRoute
   '/select-repo': typeof SelectRepoRoute
   '/notch/test': typeof NotchTestRoute
+  '/setup/script': typeof SetupScriptRoute
+  '/setup/tangled': typeof SetupTangledRoute
+  '/sites/': typeof SitesIndexRoute
   '/api/agent/message': typeof ApiAgentMessageRoute
   '/api/agent/session': typeof ApiAgentSessionRoute
   '/api/agent/stream': typeof ApiAgentStreamRoute
+  '/api/notch/check': typeof ApiNotchCheckRoute
   '/api/notch/me': typeof ApiNotchMeRoute
   '/api/oauth/client-metadata': typeof ApiOauthClientMetadataRoute
+  '/sites/$domain/builder': typeof SitesDomainBuilderRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -136,11 +181,16 @@ export interface FileRouteTypes {
     | '/repos'
     | '/select-repo'
     | '/notch/test'
+    | '/setup/script'
+    | '/setup/tangled'
+    | '/sites/'
     | '/api/agent/message'
     | '/api/agent/session'
     | '/api/agent/stream'
+    | '/api/notch/check'
     | '/api/notch/me'
     | '/api/oauth/client-metadata'
+    | '/sites/$domain/builder'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -150,11 +200,16 @@ export interface FileRouteTypes {
     | '/repos'
     | '/select-repo'
     | '/notch/test'
+    | '/setup/script'
+    | '/setup/tangled'
+    | '/sites'
     | '/api/agent/message'
     | '/api/agent/session'
     | '/api/agent/stream'
+    | '/api/notch/check'
     | '/api/notch/me'
     | '/api/oauth/client-metadata'
+    | '/sites/$domain/builder'
   id:
     | '__root__'
     | '/'
@@ -164,11 +219,16 @@ export interface FileRouteTypes {
     | '/repos'
     | '/select-repo'
     | '/notch/test'
+    | '/setup/script'
+    | '/setup/tangled'
+    | '/sites/'
     | '/api/agent/message'
     | '/api/agent/session'
     | '/api/agent/stream'
+    | '/api/notch/check'
     | '/api/notch/me'
     | '/api/oauth/client-metadata'
+    | '/sites/$domain/builder'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -179,11 +239,16 @@ export interface RootRouteChildren {
   ReposRoute: typeof ReposRoute
   SelectRepoRoute: typeof SelectRepoRoute
   NotchTestRoute: typeof NotchTestRoute
+  SetupScriptRoute: typeof SetupScriptRoute
+  SetupTangledRoute: typeof SetupTangledRoute
+  SitesIndexRoute: typeof SitesIndexRoute
   ApiAgentMessageRoute: typeof ApiAgentMessageRoute
   ApiAgentSessionRoute: typeof ApiAgentSessionRoute
   ApiAgentStreamRoute: typeof ApiAgentStreamRoute
+  ApiNotchCheckRoute: typeof ApiNotchCheckRoute
   ApiNotchMeRoute: typeof ApiNotchMeRoute
   ApiOauthClientMetadataRoute: typeof ApiOauthClientMetadataRoute
+  SitesDomainBuilderRoute: typeof SitesDomainBuilderRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -230,11 +295,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sites/': {
+      id: '/sites/'
+      path: '/sites'
+      fullPath: '/sites/'
+      preLoaderRoute: typeof SitesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/setup/tangled': {
+      id: '/setup/tangled'
+      path: '/setup/tangled'
+      fullPath: '/setup/tangled'
+      preLoaderRoute: typeof SetupTangledRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/setup/script': {
+      id: '/setup/script'
+      path: '/setup/script'
+      fullPath: '/setup/script'
+      preLoaderRoute: typeof SetupScriptRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/notch/test': {
       id: '/notch/test'
       path: '/notch/test'
       fullPath: '/notch/test'
       preLoaderRoute: typeof NotchTestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sites/$domain/builder': {
+      id: '/sites/$domain/builder'
+      path: '/sites/$domain/builder'
+      fullPath: '/sites/$domain/builder'
+      preLoaderRoute: typeof SitesDomainBuilderRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/oauth/client-metadata': {
@@ -249,6 +342,13 @@ declare module '@tanstack/react-router' {
       path: '/api/notch/me'
       fullPath: '/api/notch/me'
       preLoaderRoute: typeof ApiNotchMeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/notch/check': {
+      id: '/api/notch/check'
+      path: '/api/notch/check'
+      fullPath: '/api/notch/check'
+      preLoaderRoute: typeof ApiNotchCheckRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/agent/stream': {
@@ -283,11 +383,16 @@ const rootRouteChildren: RootRouteChildren = {
   ReposRoute: ReposRoute,
   SelectRepoRoute: SelectRepoRoute,
   NotchTestRoute: NotchTestRoute,
+  SetupScriptRoute: SetupScriptRoute,
+  SetupTangledRoute: SetupTangledRoute,
+  SitesIndexRoute: SitesIndexRoute,
   ApiAgentMessageRoute: ApiAgentMessageRoute,
   ApiAgentSessionRoute: ApiAgentSessionRoute,
   ApiAgentStreamRoute: ApiAgentStreamRoute,
+  ApiNotchCheckRoute: ApiNotchCheckRoute,
   ApiNotchMeRoute: ApiNotchMeRoute,
   ApiOauthClientMetadataRoute: ApiOauthClientMetadataRoute,
+  SitesDomainBuilderRoute: SitesDomainBuilderRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
