@@ -251,7 +251,7 @@ function PreviewPlaceholder({ domain, status }: { domain: string; status: string
     <div className="flex-1 flex flex-col items-center justify-center gap-5 bg-zinc-50 select-none">
       <div className="flex flex-col items-center gap-3 text-center max-w-xs">
         <div className={`text-zinc-300 ${isBuilding ? 'animate-pulse' : ''}`}>
-          <VetkaLogo size={40} variant="lean" />
+          <VetkaLogo size={40} />
         </div>
         <div>
           <p className="font-display text-base text-zinc-700 mb-1">{domain}</p>
@@ -602,7 +602,7 @@ function BuilderPage() {
           to="/sites"
           className="flex items-center gap-2 text-zinc-700 hover:text-black transition-colors shrink-0"
         >
-          <VetkaLogo size={16} variant="lean" />
+          <VetkaLogo size={16} />
           <span className="font-display text-sm leading-none">{domain}</span>
         </Link>
 

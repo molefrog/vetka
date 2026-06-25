@@ -519,7 +519,7 @@ export function Widget({ apiBase, forceMode, forceDomain }: Props) {
               flex: '0 0 auto',
             }}
           >
-            <VetkaMark size={33} variant="lean" />
+            <VetkaMark size={33} />
           </div>
         </div>
 
