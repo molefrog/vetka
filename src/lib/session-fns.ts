@@ -1,7 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 
 // ---------------------------------------------------------------------------
-// better-auth session — works for ALL users including Tangled
+// better-auth session — the current logged-in user (email OTP or Google)
 // ---------------------------------------------------------------------------
 
 export const getAuthSession = createServerFn({ method: 'GET' }).handler(async () => {
@@ -9,83 +9,6 @@ export const getAuthSession = createServerFn({ method: 'GET' }).handler(async ()
   const { auth } = await import('./auth.server')
   return auth.api.getSession({ headers: getRequest().headers })
 })
-
-// ---------------------------------------------------------------------------
-// Tangled identity — linked to the current better-auth user
-// ---------------------------------------------------------------------------
-
-export const getTangledIdentity = createServerFn({ method: 'GET' }).handler(async () => {
-  const { getRequest } = await import('@tanstack/react-start/server')
-  const { auth } = await import('./auth.server')
-  const session = await auth.api.getSession({ headers: getRequest().headers })
-  if (!session?.user) return null
-
-  const { db } = await import('../db')
-  const { tangledIdentity } = await import('../db/schema')
-  const { eq } = await import('drizzle-orm')
-
-  const rows = await db
-    .select()
-    .from(tangledIdentity)
-    .where(eq(tangledIdentity.userId, session.user.id))
-    .limit(1)
-
-  return rows[0] ?? null
-})
-
-// Saves the selected repo AND provisions the SSH keypair in one atomic call.
-// Returns sshPublicKey so the client can register it with Tangled via AT Protocol.
-export const saveTangledSetup = createServerFn({ method: 'POST' })
-  .validator((d: { uri: string; name: string; knot: string }) => d)
-  .handler(async ({ data }) => {
-    const { getRequest } = await import('@tanstack/react-start/server')
-    const { auth } = await import('./auth.server')
-    const session = await auth.api.getSession({ headers: getRequest().headers })
-    if (!session?.user) throw new Error('Not authenticated')
-
-    const { db } = await import('../db')
-    const { tangledIdentity } = await import('../db/schema')
-    const { eq } = await import('drizzle-orm')
-
-    const [identity] = await db
-      .select()
-      .from(tangledIdentity)
-      .where(eq(tangledIdentity.userId, session.user.id))
-      .limit(1)
-
-    if (!identity) throw new Error('No Tangled identity found')
-
-    // Generate SSH keypair if not already stored
-    let { sshPrivateKey, sshPublicKey, sshKeyFileId } = identity
-
-    if (!sshPrivateKey || !sshPublicKey) {
-      const { generateSSHKeyPair, uploadSshKeyToFiles } = await import('./agent.server')
-      const kp = generateSSHKeyPair()
-      sshPrivateKey = kp.privateKey
-      sshPublicKey = kp.publicKey
-      sshKeyFileId = await uploadSshKeyToFiles(sshPrivateKey)
-    } else if (!sshKeyFileId) {
-      // Key exists but wasn't uploaded to Files API yet
-      const { uploadSshKeyToFiles } = await import('./agent.server')
-      sshKeyFileId = await uploadSshKeyToFiles(sshPrivateKey)
-    }
-
-    // Save everything in one update
-    await db
-      .update(tangledIdentity)
-      .set({
-        selectedRepoUri: data.uri,
-        selectedRepoName: data.name,
-        selectedRepoKnot: data.knot,
-        sshPrivateKey,
-        sshPublicKey,
-        sshKeyFileId,
-        updatedAt: new Date(),
-      })
-      .where(eq(tangledIdentity.userId, session.user.id))
-
-    return { sshPublicKey: sshPublicKey! }
-  })
 
 // ---------------------------------------------------------------------------
 // Sites — the social entity
@@ -122,11 +45,8 @@ export const createSite = createServerFn({ method: 'POST' })
   .validator(
     (d: {
       domain: string
-      isTangled: boolean
-      did?: string
-      repoUri?: string
-      repoName?: string
-      repoKnot?: string
+      kind?: 'external' | 'generated'
+      subdomain?: string
     }) => d,
   )
   .handler(async ({ data }) => {
@@ -139,33 +59,51 @@ export const createSite = createServerFn({ method: 'POST' })
     const { site } = await import('../db/schema')
 
     const { sql } = await import('drizzle-orm')
+    const kind = data.kind ?? 'external'
     const [created] = await db
       .insert(site)
       .values({
         domain: data.domain,
         userId: session.user.id,
-        isTangled: data.isTangled,
-        did: data.did,
-        repoUri: data.repoUri,
-        repoName: data.repoName,
-        repoKnot: data.repoKnot,
+        kind,
+        subdomain: data.subdomain ?? null,
         status: 'draft',
       })
       .onConflictDoUpdate({
         target: site.domain,
         set: {
           userId: session.user.id,
-          isTangled: data.isTangled,
-          did: data.did,
-          repoUri: data.repoUri,
-          repoName: data.repoName,
-          repoKnot: data.repoKnot,
+          kind,
+          subdomain: data.subdomain ?? null,
           updatedAt: sql`now()`,
         },
       })
       .returning()
 
     return created
+  })
+
+// Generated sites live on a wildcard subdomain. SUBDOMAIN_ROOT defaults to
+// "web.sh" so a chosen label "evan" maps to "evan.web.sh".
+export const SUBDOMAIN_ROOT = import.meta.env.VITE_SUBDOMAIN_ROOT ?? 'web.sh'
+
+export const SUBDOMAIN_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/
+
+// Reserve hostnames we use ourselves so a generated site can't shadow them.
+const RESERVED_SUBDOMAINS = new Set(['www', 'api', 'app', 'admin', 'vetka', 'mail', 'ftp', 'web'])
+
+export const checkSubdomain = createServerFn({ method: 'GET' })
+  .validator((label: string) => label)
+  .handler(async ({ data: label }) => {
+    const sub = label.trim().toLowerCase()
+    if (!SUBDOMAIN_RE.test(sub) || RESERVED_SUBDOMAINS.has(sub)) {
+      return { available: false as const, reason: 'invalid' as const }
+    }
+    const { db } = await import('../db')
+    const { site } = await import('../db/schema')
+    const { eq } = await import('drizzle-orm')
+    const [taken] = await db.select({ id: site.id }).from(site).where(eq(site.subdomain, sub)).limit(1)
+    return taken ? { available: false as const, reason: 'taken' as const } : { available: true as const }
   })
 
 // ---------------------------------------------------------------------------
@@ -192,17 +130,12 @@ export const getPostLoginDestination = createServerFn({ method: 'GET' }).handler
   if (!session?.user) return '/' as const
 
   const { db } = await import('../db')
-  const { tangledIdentity } = await import('../db/schema')
+  const { site } = await import('../db/schema')
   const { eq } = await import('drizzle-orm')
 
-  const tangled = await db
-    .select()
-    .from(tangledIdentity)
-    .where(eq(tangledIdentity.userId, session.user.id))
-    .limit(1)
+  // Already has a site → hub. Otherwise let them pick how to get one.
+  const sites = await db.select({ id: site.id }).from(site).where(eq(site.userId, session.user.id)).limit(1)
+  if (sites.length > 0) return '/' as const
 
-  // Always send Tangled users through setup so SSH keys are always provisioned.
-  if (tangled.length > 0) return '/setup/tangled' as const
-
-  return '/setup/script' as const
+  return '/setup' as const
 })

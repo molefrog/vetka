@@ -1,90 +1,10 @@
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { tanstackStartCookies } from 'better-auth/tanstack-start'
-import { setSessionCookie } from 'better-auth/cookies'
-import { createAuthEndpoint } from '@better-auth/core/api'
-import { APIError } from 'better-auth'
+import { emailOTP } from 'better-auth/plugins'
 import { db } from '../db'
 import * as schema from '../db/schema'
-import * as z from 'zod'
-
-function tangledPlugin() {
-  return {
-    id: 'tangled',
-    endpoints: {
-      signInTangled: createAuthEndpoint(
-        '/sign-in/tangled',
-        {
-          method: 'POST',
-          body: z.object({ did: z.string().min(1), handle: z.string().min(1) }),
-          requireRequest: true,
-        },
-        async (ctx) => {
-          const { did, handle } = ctx.body
-
-          // Synthetic email: replace non-alphanumeric chars so it looks like a valid email
-          const emailLocal = did.replace(/[^a-zA-Z0-9]/g, '-')
-          const syntheticEmail = `${emailLocal}@tangled.atproto.com`
-
-          // Find existing account for this DID
-          const existingAccount = await ctx.context.adapter.findOne<{
-            userId: string
-          }>({
-            model: 'account',
-            where: [
-              { field: 'providerId', value: 'tangled' },
-              { field: 'accountId', value: did },
-            ],
-          })
-
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          let user: any
-
-          if (existingAccount) {
-            user = await ctx.context.adapter.findOne({
-              model: 'user',
-              where: [{ field: 'id', value: existingAccount.userId }],
-            })
-            if (!user)
-              throw new APIError('INTERNAL_SERVER_ERROR', {
-                message: 'User not found',
-              })
-          } else {
-            user = await ctx.context.internalAdapter.createUser({
-              name: handle,
-              email: syntheticEmail,
-              emailVerified: false,
-            })
-            await ctx.context.internalAdapter.createAccount({
-              userId: user.id,
-              providerId: 'tangled',
-              accountId: did,
-            })
-          }
-
-          // Upsert the tangledIdentity row and link it to this better-auth user.
-          // Runs for new and existing logins so the row is always created and the
-          // handle stays fresh (self-heals accounts created before this existed).
-          await db
-            .insert(schema.tangledIdentity)
-            .values({ did, handle, userId: user.id })
-            .onConflictDoUpdate({
-              target: schema.tangledIdentity.did,
-              set: { userId: user.id, handle, updatedAt: new Date() },
-            })
-
-          const session = await ctx.context.internalAdapter.createSession(user.id)
-          if (!session)
-            throw new APIError('INTERNAL_SERVER_ERROR', { message: 'Failed to create session' })
-
-          await setSessionCookie(ctx, { session, user })
-
-          return ctx.json({ userId: user.id, did })
-        },
-      ),
-    },
-  }
-}
+import { sendOtpEmail } from './email.server'
 
 const isLocalDev = process.env.NODE_ENV !== 'production' && !process.env.BETTER_AUTH_URL?.startsWith('https')
 
@@ -109,7 +29,7 @@ export const auth = betterAuth({
       verification: schema.verification,
     },
   }),
-  emailAndPassword: { enabled: true, minPasswordLength: 6 },
+  // Passwordless: users sign in with email + a one-time code, or with Google.
   ...(process.env.GOOGLE_CLIENT_ID
     ? {
         socialProviders: {
@@ -127,5 +47,16 @@ export const auth = betterAuth({
     'http://localhost:3000',
     'http://127.0.0.1:3000',
   ],
-  plugins: [tanstackStartCookies(), tangledPlugin()],
+  plugins: [
+    tanstackStartCookies(),
+    emailOTP({
+      // Allow account creation on first sign-in so email OTP doubles as sign-up.
+      disableSignUp: false,
+      otpLength: 6,
+      expiresIn: 5 * 60,
+      async sendVerificationOTP({ email, otp }) {
+        await sendOtpEmail(email, otp)
+      },
+    }),
+  ],
 })

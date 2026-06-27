@@ -10,11 +10,10 @@ const env = Object.fromEntries(
 const client = new pg.Client({ connectionString: env.DATABASE_URL })
 await client.connect()
 
+const email = process.argv[2] ?? 'molefrog@gmail.com'
 const { rows: users } = await client.query(
-  `SELECT u.id, u.name, u.email FROM "user" u
-   JOIN tangled_identity ti ON ti.user_id = u.id
-   WHERE ti.handle = $1`,
-  ['molefrog.tngl.sh']
+  `SELECT u.id, u.name, u.email FROM "user" u WHERE u.email = $1`,
+  [email]
 )
 console.log('User:', users)
 

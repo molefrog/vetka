@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { eq } from 'drizzle-orm'
 import { auth } from '../../../lib/auth.server'
 import { db } from '../../../db'
-import { tangledIdentity, site } from '../../../db/schema'
+import { site } from '../../../db/schema'
 
 // Allow any origin since Notch embeds on arbitrary third-party sites.
 // Credentials mode requires us to reflect the specific origin (not *).
@@ -30,20 +30,15 @@ export const Route = createFileRoute('/api/notch/me')({
 
         const userId = session.user.id
 
-        // Fetch Tangled handle and viewer's own site domain in parallel.
-        const [identityRows, siteRows] = await Promise.all([
-          db.select({ handle: tangledIdentity.handle })
-            .from(tangledIdentity)
-            .where(eq(tangledIdentity.userId, userId))
-            .limit(1),
-          db.select({ domain: site.domain })
-            .from(site)
-            .where(eq(site.userId, userId))
-            .limit(1),
-        ])
+        const [siteRow] = await db
+          .select({ domain: site.domain })
+          .from(site)
+          .where(eq(site.userId, userId))
+          .limit(1)
 
-        const handle = identityRows[0]?.handle ?? null
-        const domain = siteRows[0]?.domain ?? null
+        const domain = siteRow?.domain ?? null
+        // Handle is derived from the site domain's first label (e.g. "maya").
+        const handle = domain ? `@${domain.replace(/^https?:\/\//, '').split('.')[0]}` : null
 
         return Response.json(
           {

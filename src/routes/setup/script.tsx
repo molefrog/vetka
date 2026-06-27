@@ -61,7 +61,7 @@ function SetupScriptPage() {
   async function handleFinish() {
     setSaving(true)
     try {
-      await createSite({ data: { domain, isTangled: false } })
+      await createSite({ data: { domain, kind: 'external' } })
       router.navigate({ to: '/' })
     } catch {
       setSaving(false)

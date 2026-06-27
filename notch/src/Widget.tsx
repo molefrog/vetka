@@ -267,7 +267,7 @@ export function Widget({ apiBase, forceMode, forceDomain }: Props) {
         window.focus()
       } catch {}
     }
-    // Fallback for paths that can't post back (e.g. the Tangled OAuth redirect
+    // Fallback for paths that can't post back (e.g. the Google OAuth redirect
     // navigates the tab away): re-check the session whenever we regain focus
     // while a login tab is/was open.
     const onFocus = () => {

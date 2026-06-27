@@ -1,9 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { auth } from '../../../lib/auth.server'
 import { getAnthropicClient } from '../../../lib/agent.server'
 import { db } from '../../../db'
-import { tangledIdentity } from '../../../db/schema'
+import { site } from '../../../db/schema'
 
 function extractBlockText(content: Array<{ type: string; text?: string }> | null | undefined): string {
   return (content ?? []).filter((b) => b.type === 'text').map((b) => b.text ?? '').join('\n')
@@ -34,34 +34,38 @@ export const Route = createFileRoute('/api/agent/stream')({
 
         const userId = authSession.user.id
 
-        const identityRows = await db
-          .select()
-          .from(tangledIdentity)
-          .where(eq(tangledIdentity.userId, userId))
+        const [generated] = await db
+          .select({ domain: site.domain, subdomain: site.subdomain })
+          .from(site)
+          .where(and(eq(site.userId, userId), eq(site.kind, 'generated')))
           .limit(1)
-
-        const identity = identityRows[0]
 
         const baseUrl = new URL(request.url).origin
 
         let contextBlock = ''
-        if (identity?.selectedRepoName && identity?.selectedRepoKnot) {
-          const httpsUrl = `https://tangled.org/${identity.handle}/${identity.selectedRepoName}`
-          const prodUrl = `https://${identity.handle}`
-          const pushRelay = `${baseUrl}/api/agent/push`
+        if (generated) {
+          const prodUrl = `https://${generated.domain}`
+          const deployRelay = `${baseUrl}/api/agent/deploy`
           contextBlock =
             `<vetka_context>\n` +
-            `repo_https: ${httpsUrl}\n` +
             `prod: ${prodUrl}\n` +
-            `Clone: git clone ${httpsUrl}\n` +
+            `You are building a static website that will be hosted at ${prodUrl}.\n` +
+            `Work in /workspace. Use bun + React + Tailwind; install packages with bun add as needed.\n` +
+            `Bundle the site to a dist/ directory of static files using bun's built-in bundler\n` +
+            `(e.g. \`bun build ./src/index.html --outdir dist\`). dist/ MUST contain index.html.\n` +
             `\n` +
-            `To push commits, use the Vetka push relay (direct SSH is blocked in this sandbox):\n` +
-            `  git bundle create /tmp/push.bundle origin/main..HEAD\n` +
-            `  curl -sS -X POST ${pushRelay} \\\n` +
+            `To deploy, POST the built files to the Vetka deploy relay (direct network egress is\n` +
+            `limited in this sandbox — always use this relay):\n` +
+            `  cd dist && \\\n` +
+            `  files=$(find . -type f | sed 's|^\\./||' | while read f; do \\\n` +
+            `    printf '{"path":"%s","contentBase64":"%s"}\\n' "$f" "$(base64 -w0 "$f")"; \\\n` +
+            `  done | paste -sd, -) && \\\n` +
+            `  curl -sS -X POST ${deployRelay} \\\n` +
             `    -H "Authorization: Bearer ${sessionId}" \\\n` +
-            `    -F bundle=@/tmp/push.bundle\n` +
-            `  # Returns JSON: {"hash":"<commit-hash>","url":"${prodUrl}"}\n` +
-            `  # After a successful push, run: git fetch origin && git reset --hard origin/main\n` +
+            `    -H "Content-Type: application/json" \\\n` +
+            `    -d "{\\"message\\":\\"<short summary>\\",\\"files\\":[$files]}"\n` +
+            `  # Returns JSON: {"ok":true,"url":"${prodUrl}","snapshotId":"...","fileCount":N}\n` +
+            `  # Each successful deploy is saved as a rollback-able snapshot.\n` +
             `</vetka_context>\n`
         }
 
@@ -156,24 +160,21 @@ export const Route = createFileRoute('/api/agent/stream')({
 
                 if (terminated) break
 
-                // If the session paused for a push_repo custom tool call, execute it and loop
-                if (pendingCustomTool?.name === 'push_repo') {
-                  const { pushBundle } = await import('../../../lib/push.server')
-                  const bundleB64 = pendingCustomTool.input.bundle_base64 as string
-                  const bundleBytes = Buffer.from(bundleB64, 'base64')
-                  const result = await pushBundle(bundleBytes, userId)
-
-                  // Send tool result back to the Managed Agents session (resumes the agent)
+                // Deploys now happen via the HTTP relay (POST /api/agent/deploy) that
+                // the agent curls directly, so there are no custom tools to service.
+                // If a custom tool is ever pending, resolve it with guidance so the
+                // session doesn't hang.
+                if (pendingCustomTool) {
+                  const result = { error: 'Use the deploy relay: curl -X POST /api/agent/deploy (see <vetka_context>).' }
                   await client.beta.sessions.events.send(sessionId, {
                     events: [{
                       type: 'user.custom_tool_result' as any,
                       custom_tool_use_id: pendingCustomTool.id,
                       content: [{ type: 'text', text: JSON.stringify(result) }],
-                      is_error: 'error' in result,
+                      is_error: true,
                     }],
                   })
-
-                  send({ type: 'tool_result', tool_use_id: pendingCustomTool.id, output: JSON.stringify(result), is_error: 'error' in result })
+                  send({ type: 'tool_result', tool_use_id: pendingCustomTool.id, output: JSON.stringify(result), is_error: true })
                   continue
                 }
 

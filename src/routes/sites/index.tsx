@@ -1,5 +1,5 @@
 import { createFileRoute, redirect, Link } from '@tanstack/react-router'
-import { getAuthSession, getUserSites, getTangledIdentity } from '../../lib/session-fns'
+import { getAuthSession, getUserSites } from '../../lib/session-fns'
 import { VetkaLogo } from '../../components/VetkaLogo'
 
 export const Route = createFileRoute('/sites/')({
@@ -8,14 +8,13 @@ export const Route = createFileRoute('/sites/')({
     if (!session?.user) throw redirect({ to: '/' })
   },
   loader: async () => {
-    const [sites, tangled] = await Promise.all([getUserSites(), getTangledIdentity()])
-    return { sites, setupPath: tangled ? '/setup/tangled' : '/setup/script' } as const
+    return { sites: await getUserSites() } as const
   },
   component: SitesPage,
 })
 
 function SitesPage() {
-  const { sites, setupPath } = Route.useLoaderData()
+  const { sites } = Route.useLoaderData()
 
   return (
     <div className="min-h-screen px-4 py-10">
@@ -32,7 +31,7 @@ function SitesPage() {
           <div className="space-y-3">
             <p className="text-sm text-zinc-400">No sites yet.</p>
             <Link
-              to={setupPath}
+              to="/setup"
               className="inline-block text-sm border border-black px-3 py-1.5 hover:bg-zinc-50"
             >
               Set up your site →
@@ -44,21 +43,11 @@ function SitesPage() {
               <div key={s.id} className="flex items-center justify-between border border-zinc-200 px-4 py-3">
                 <div>
                   <div className="text-sm font-medium">{s.domain}</div>
-                  <div className="text-xs text-zinc-400 mt-0.5">
-                    {s.isTangled && s.repoName ? (
-                      <a
-                        href={`https://tangled.org/${s.domain}/${s.repoName}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hover:text-zinc-700 underline underline-offset-2"
-                      >
-                        tangled.org/{s.domain}/{s.repoName}
-                      </a>
-                    ) : (
-                      <a href={`https://${s.domain}`} target="_blank" rel="noopener noreferrer" className="hover:text-zinc-700 underline underline-offset-2">
-                        {s.domain}
-                      </a>
-                    )}
+                  <div className="text-xs text-zinc-400 mt-0.5 flex items-center gap-2">
+                    <a href={`https://${s.domain}`} target="_blank" rel="noopener noreferrer" className="hover:text-zinc-700 underline underline-offset-2">
+                      {s.domain}
+                    </a>
+                    <span className="text-[10px] uppercase tracking-wide text-zinc-300">{s.kind}</span>
                   </div>
                 </div>
                 <Link

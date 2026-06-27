@@ -6,13 +6,12 @@
 //
 // The social graph is keyed by `site.id` — a user acts in it through the first
 // `site` they own. Display fields (name/handle/avatar) are *derived* from the
-// owning `user` (+ `tangledIdentity` for a real handle); there is no profile
-// table.
+// owning `user` and the site's domain; there is no profile table.
 
 import { inArray, eq } from 'drizzle-orm'
 import { auth } from './auth.server'
 import { db } from '../db'
-import { site, user, tangledIdentity } from '../db/schema'
+import { site, user } from '../db/schema'
 
 // --- CORS -------------------------------------------------------------------
 
@@ -72,9 +71,8 @@ export type SiteProfile = {
   seed: string // stable facehash seed (the domain)
 }
 
-function deriveHandle(domain: string, tangledHandle: string | null): string {
-  if (tangledHandle) return tangledHandle.startsWith('@') ? tangledHandle : `@${tangledHandle}`
-  // Fall back to the domain's first label, e.g. "maya.dev" -> "@maya".
+function deriveHandle(domain: string): string {
+  // The domain's first label, e.g. "maya.dev" -> "@maya".
   const slug = domain.replace(/^https?:\/\//, '').split('.')[0] || domain
   return `@${slug}`
 }
@@ -92,11 +90,9 @@ export async function siteProfiles(siteIds: string[]): Promise<Map<string, SiteP
       domain: site.domain,
       name: user.name,
       image: user.image,
-      tangledHandle: tangledIdentity.handle,
     })
     .from(site)
     .leftJoin(user, eq(site.userId, user.id))
-    .leftJoin(tangledIdentity, eq(site.did, tangledIdentity.did))
     .where(inArray(site.id, ids))
 
   for (const r of rows) {
@@ -104,7 +100,7 @@ export async function siteProfiles(siteIds: string[]): Promise<Map<string, SiteP
       id: r.id,
       name: r.name ?? r.domain,
       image: r.image ?? null,
-      handle: deriveHandle(r.domain, r.tangledHandle ?? null),
+      handle: deriveHandle(r.domain),
       seed: r.domain,
     })
   }
