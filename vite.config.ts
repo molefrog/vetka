@@ -72,7 +72,12 @@ const config = defineConfig({
     tanstackStart(),
     // nitro() creates a dispatchFetch environment that disables TanStack Start's own
     // dev middleware, breaking API routes in dev. Only use it for production builds.
-    ...(process.env.NODE_ENV === 'production' ? [nitro({ preset: 'vercel' })] : []),
+    ...(process.env.NODE_ENV === 'production' ? [nitro({
+      preset: 'vercel',
+      handlers: [
+        { middleware: true, handler: path.resolve(__dirname, 'server/middleware/subdomain.ts') },
+      ],
+    })] : []),
     viteReact(),
   ],
 })

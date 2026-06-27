@@ -4,8 +4,8 @@
   "rewrites": [
     {
       "source": "/(.*)",
-      "has": [{ "type": "host", "value": "(?<sub>[^.]+)\\.vetka\\.sh" }],
-      "destination": "/api/serve/$1"
+      "has": [{ "type": "header", "key": "x-forwarded-host", "value": "(?<sub>[^.]+)\\.vetka\\.sh" }],
+      "destination": "/api/serve/$1?_sub=$sub"
     }
   ]
 }

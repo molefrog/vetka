@@ -26,7 +26,14 @@ function subdomainFromHost(host: string | null): string | null {
 }
 
 async function serve(request: Request, splat: string | undefined): Promise<Response> {
-  const sub = request.headers.get('X-Vetka-Subdomain') ?? subdomainFromHost(request.headers.get('host'))
+  const url = new URL(request.url)
+  // _sub is injected by the vercel.json rewrite from the wildcard host capture group
+  // so the serve function gets the subdomain even if Vercel normalizes the Host header.
+  const subFromQuery = url.searchParams.get('_sub')
+  const sub =
+    request.headers.get('X-Vetka-Subdomain') ??
+    subFromQuery ??
+    subdomainFromHost(request.headers.get('host'))
   if (!sub) return new Response('Not found', { status: 404 })
 
   const [siteRow] = await db
