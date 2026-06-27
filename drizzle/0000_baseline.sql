@@ -101,6 +101,9 @@ CREATE TABLE "tangled_identity" (
 	"selected_repo_uri" text,
 	"selected_repo_name" text,
 	"selected_repo_knot" text,
+	"ssh_private_key" text,
+	"ssh_public_key" text,
+	"ssh_key_file_id" text,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
