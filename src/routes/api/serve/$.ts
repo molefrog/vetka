@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '../../../db'
 import { site } from '../../../db/schema'
 import { getStorage, storageKeys, contentTypeFor } from '../../../lib/storage.server'
+import { cacheControl, injectNotch } from '../../../lib/cache'
 
 // Static file serving for generated sites hosted on the wildcard subdomain
 // (e.g. *.web.sh). The reverse proxy that fronts the subdomain forwards the
@@ -57,10 +58,16 @@ async function serve(request: Request, splat: string | undefined): Promise<Respo
   }
   if (!obj) return new Response('Not found', { status: 404 })
 
-  return new Response(obj.body as BodyInit, {
+  const contentType = obj.contentType || contentTypeFor(path)
+  const body =
+    path.endsWith('.html')
+      ? injectNotch(new TextDecoder().decode(obj.body as Uint8Array))
+      : (obj.body as BodyInit)
+
+  return new Response(body, {
     headers: {
-      'Content-Type': obj.contentType || contentTypeFor(path),
-      'Cache-Control': path.endsWith('index.html') ? 'public, max-age=0, must-revalidate' : 'public, max-age=3600',
+      'Content-Type': contentType,
+      'Cache-Control': cacheControl(path),
     },
   })
 }

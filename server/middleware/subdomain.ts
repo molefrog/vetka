@@ -21,11 +21,12 @@ export default defineEventHandler(async (event) => {
   const label = host.slice(0, -suffix.length)
   if (!label || label.includes('.')) return
 
-  const [{ db }, { site }, { getStorage, storageKeys, contentTypeFor }, { eq }] = await Promise.all([
+  const [{ db }, { site }, { getStorage, storageKeys, contentTypeFor }, { eq }, { cacheControl, injectNotch }] = await Promise.all([
     import('../../src/db'),
     import('../../src/db/schema'),
     import('../../src/lib/storage.server'),
     import('drizzle-orm'),
+    import('../../src/lib/cache'),
   ])
 
   const [siteRow] = await db
@@ -48,12 +49,16 @@ export default defineEventHandler(async (event) => {
   }
   if (!obj) return new Response('Not found', { status: 404 })
 
-  return new Response(obj.body as BodyInit, {
+  const contentType = obj.contentType || contentTypeFor(filePath)
+  const body =
+    filePath.endsWith('.html')
+      ? injectNotch(new TextDecoder().decode(obj.body as Uint8Array))
+      : (obj.body as BodyInit)
+
+  return new Response(body, {
     headers: {
-      'Content-Type': obj.contentType || contentTypeFor(filePath),
-      'Cache-Control': filePath.endsWith('index.html')
-        ? 'public, max-age=0, must-revalidate'
-        : 'public, max-age=3600',
+      'Content-Type': contentType,
+      'Cache-Control': cacheControl(filePath),
     },
   })
 })
