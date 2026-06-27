@@ -29,17 +29,26 @@ export const auth = betterAuth({
       verification: schema.verification,
     },
   }),
-  // Passwordless: users sign in with email + a one-time code, or with Google.
-  ...(process.env.GOOGLE_CLIENT_ID
-    ? {
-        socialProviders: {
+  // Passwordless: users sign in with email + a one-time code, or with a social
+  // provider (Google / GitHub). Each provider is enabled only when its keys are set.
+  socialProviders: {
+    ...(process.env.GOOGLE_CLIENT_ID
+      ? {
           google: {
             clientId: process.env.GOOGLE_CLIENT_ID,
             clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
           },
-        },
-      }
-    : {}),
+        }
+      : {}),
+    ...(process.env.GITHUB_CLIENT_ID
+      ? {
+          github: {
+            clientId: process.env.GITHUB_CLIENT_ID,
+            clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+          },
+        }
+      : {}),
+  },
   trustedOrigins: [
     'https://vetka.sh',
     'https://www.vetka.sh',

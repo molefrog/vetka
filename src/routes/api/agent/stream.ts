@@ -35,7 +35,7 @@ export const Route = createFileRoute('/api/agent/stream')({
         const userId = authSession.user.id
 
         const [generated] = await db
-          .select({ domain: site.domain, subdomain: site.subdomain })
+          .select({ id: site.id, domain: site.domain, subdomain: site.subdomain })
           .from(site)
           .where(and(eq(site.userId, userId), eq(site.kind, 'generated')))
           .limit(1)
@@ -48,6 +48,7 @@ export const Route = createFileRoute('/api/agent/stream')({
           const deployRelay = `${baseUrl}/api/agent/deploy`
           contextBlock =
             `<vetka_context>\n` +
+            `site_id: ${generated.id}\n` +
             `prod: ${prodUrl}\n` +
             `You are building a static website that will be hosted at ${prodUrl}.\n` +
             `Work in /workspace. Use bun + React + Tailwind; install packages with bun add as needed.\n` +
@@ -55,7 +56,7 @@ export const Route = createFileRoute('/api/agent/stream')({
             `(e.g. \`bun build ./src/index.html --outdir dist\`). dist/ MUST contain index.html.\n` +
             `\n` +
             `To deploy, POST the built files to the Vetka deploy relay (direct network egress is\n` +
-            `limited in this sandbox — always use this relay):\n` +
+            `limited in this sandbox — always use this relay). Include the site_id above:\n` +
             `  cd dist && \\\n` +
             `  files=$(find . -type f | sed 's|^\\./||' | while read f; do \\\n` +
             `    printf '{"path":"%s","contentBase64":"%s"}\\n' "$f" "$(base64 -w0 "$f")"; \\\n` +
@@ -63,7 +64,7 @@ export const Route = createFileRoute('/api/agent/stream')({
             `  curl -sS -X POST ${deployRelay} \\\n` +
             `    -H "Authorization: Bearer ${sessionId}" \\\n` +
             `    -H "Content-Type: application/json" \\\n` +
-            `    -d "{\\"message\\":\\"<short summary>\\",\\"files\\":[$files]}"\n` +
+            `    -d "{\\"siteId\\":\\"${generated.id}\\",\\"message\\":\\"<short summary>\\",\\"files\\":[$files]}"\n` +
             `  # Returns JSON: {"ok":true,"url":"${prodUrl}","snapshotId":"...","fileCount":N}\n` +
             `  # Each successful deploy is saved as a rollback-able snapshot.\n` +
             `</vetka_context>\n`

@@ -4,7 +4,7 @@ A social layer for the personal web. People connect their websites, follow each 
 
 ## User types
 
-Everyone signs in the same way — passwordless **email OTP** or **Google** — and gets one site. There are two kinds of site:
+Everyone signs in the same way — passwordless **email OTP**, **Google**, or **GitHub** — and gets one site. There are two kinds of site:
 
 **External site** — the user connects a website they already own by pasting the Notch `<script>` tag. `site.kind = 'external'`, `domain` is their own domain. Social-only; no agent.
 
@@ -43,7 +43,7 @@ Split view: iframe (live site preview) + chat (Anthropic Managed Agent). A "Vers
 /sites                      User's sites list (one site max for now)
 /sites/$domain/builder      Agent + live preview + versions
 
-/api/auth/*                 BetterAuth (email OTP + Google, session)
+/api/auth/*                 BetterAuth (email OTP + Google + GitHub, session)
 /api/agent/session          Get or create Anthropic Managed Agent session
 /api/agent/stream           SSE stream for agent responses
 /api/agent/deploy           Deploy relay — agent POSTs built files (Bearer = session id)
@@ -135,6 +135,7 @@ Passwordless only.
 |---|---|
 | Email OTP | BetterAuth `emailOTP` plugin. `authClient.emailOtp.sendVerificationOtp({ email, type: 'sign-in' })` emails a 6-digit code (via `sendOtpEmail` in `email.server.ts` — Resend if `RESEND_API_KEY` is set, else console-logged in dev), then `signIn.emailOtp({ email, otp })`. First-time emails auto-create the user. |
 | Google | BetterAuth social provider, enabled when `GOOGLE_CLIENT_ID` is set. `signIn.social({ provider: 'google' })`. |
+| GitHub | BetterAuth social provider, enabled when `GITHUB_CLIENT_ID` is set. `signIn.social({ provider: 'github' })`. |
 
 `trustedOrigins` in `auth.server.ts` must include all domains (vetka.sh, tailscale URL, localhost).  
 `disableCSRFCheck: true` is set for non-production to allow cross-origin dev logins.
@@ -165,7 +166,7 @@ The widget runs on third-party sites and calls `vetka.sh/api/notch/*` with `cred
 ## Stack
 
 - TanStack Start (Vite + React + SSR) + Tailwind v4 + TypeScript
-- BetterAuth 1.6 — sessions, DB-backed (email OTP + Google)
+- BetterAuth 1.6 — sessions, DB-backed (email OTP + Google + GitHub)
 - Anthropic Managed Agents SDK — persistent per-user agent sessions (build generated sites)
 - `@aws-sdk/client-s3` — S3-compatible object storage (Cloudflare R2 / AWS S3) for hosted sites
 - Drizzle ORM + postgres.js → Aiven PostgreSQL 17
