@@ -1,5 +1,5 @@
 {
-  "id": "e2550a81-06c5-4b93-a101-98db9aad24ae",
+  "id": "2f2d1cf9-9a27-4963-bbfd-f7c44e0df12b",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -815,6 +815,24 @@
         },
         "selected_repo_knot": {
           "name": "selected_repo_knot",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ssh_private_key": {
+          "name": "ssh_private_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ssh_public_key": {
+          "name": "ssh_public_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ssh_key_file_id": {
+          "name": "ssh_key_file_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
