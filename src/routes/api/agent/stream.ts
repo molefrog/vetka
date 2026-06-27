@@ -45,7 +45,6 @@ export const Route = createFileRoute('/api/agent/stream')({
         let contextBlock = ''
         if (generated) {
           const prodUrl = `https://${generated.domain}`
-          const deployRelay = `${baseUrl}/api/agent/deploy`
           contextBlock =
             `<vetka_context>\n` +
             `site_id: ${generated.id}\n` +
@@ -55,17 +54,20 @@ export const Route = createFileRoute('/api/agent/stream')({
             `Bundle the site to a dist/ directory of static files using bun's built-in bundler\n` +
             `(e.g. \`bun build ./src/index.html --outdir dist\`). dist/ MUST contain index.html.\n` +
             `\n` +
-            `To deploy, POST the built files to the Vetka deploy relay (direct network egress is\n` +
-            `limited in this sandbox — always use this relay). Include the site_id above:\n` +
+            `To deploy: call the get_deploy_credentials tool to get a short-lived deploy token\n` +
+            `plus the deploy URL, then POST the built files (direct egress is limited — always use\n` +
+            `this relay):\n` +
             `  cd dist && \\\n` +
             `  files=$(find . -type f | sed 's|^\\./||' | while read f; do \\\n` +
             `    printf '{"path":"%s","contentBase64":"%s"}\\n' "$f" "$(base64 -w0 "$f")"; \\\n` +
             `  done | paste -sd, -) && \\\n` +
-            `  curl -sS -X POST ${deployRelay} \\\n` +
-            `    -H "Authorization: Bearer ${sessionId}" \\\n` +
+            `  curl -sS -X POST <deploy_url from get_deploy_credentials> \\\n` +
+            `    -H "Authorization: Bearer <token from get_deploy_credentials>" \\\n` +
             `    -H "Content-Type: application/json" \\\n` +
-            `    -d "{\\"siteId\\":\\"${generated.id}\\",\\"message\\":\\"<short summary>\\",\\"files\\":[$files]}"\n` +
+            `    -d "{\\"message\\":\\"<short summary>\\",\\"files\\":[$files]}"\n` +
             `  # Returns JSON: {"ok":true,"url":"${prodUrl}","snapshotId":"...","fileCount":N}\n` +
+            `  # Tokens expire (~2h). If the relay returns 401 with code "token_expired",\n` +
+            `  # call get_deploy_credentials again for a fresh token and retry.\n` +
             `  # Each successful deploy is saved as a rollback-able snapshot.\n` +
             `</vetka_context>\n`
         }
@@ -161,12 +163,51 @@ export const Route = createFileRoute('/api/agent/stream')({
 
                 if (terminated) break
 
-                // Deploys now happen via the HTTP relay (POST /api/agent/deploy) that
-                // the agent curls directly, so there are no custom tools to service.
-                // If a custom tool is ever pending, resolve it with guidance so the
-                // session doesn't hang.
+                // Service the get_deploy_credentials custom tool: mint a fresh,
+                // short-lived deploy token for this user's generated site and hand
+                // it back via the tool result (never in the prompt). The agent then
+                // curls /api/agent/deploy with it. The browser sees a redacted
+                // result so the token isn't rendered in the UI.
+                if (pendingCustomTool?.name === 'get_deploy_credentials') {
+                  let agentResult: object
+                  let isError = false
+                  if (!generated) {
+                    agentResult = { error: 'No generated site for this user.' }
+                    isError = true
+                  } else {
+                    const { mintDeployToken, DEPLOY_TOKEN_TTL_SECONDS } = await import('../../../lib/deploy-token.server')
+                    const { token, expiresAt } = await mintDeployToken(generated.id)
+                    agentResult = {
+                      deploy_url: `${baseUrl}/api/agent/deploy`,
+                      token,
+                      expires_at: expiresAt.toISOString(),
+                      ttl_seconds: DEPLOY_TOKEN_TTL_SECONDS,
+                      site_id: generated.id,
+                      prod_url: `https://${generated.domain}`,
+                    }
+                  }
+
+                  await client.beta.sessions.events.send(sessionId, {
+                    events: [{
+                      type: 'user.custom_tool_result' as any,
+                      custom_tool_use_id: pendingCustomTool.id,
+                      content: [{ type: 'text', text: JSON.stringify(agentResult) }],
+                      is_error: isError,
+                    }],
+                  })
+                  // Redact the token from the client stream.
+                  send({
+                    type: 'tool_result',
+                    tool_use_id: pendingCustomTool.id,
+                    output: isError ? JSON.stringify(agentResult) : '[deploy credentials issued]',
+                    is_error: isError,
+                  })
+                  continue
+                }
+
+                // Any other custom tool: resolve with guidance so the session doesn't hang.
                 if (pendingCustomTool) {
-                  const result = { error: 'Use the deploy relay: curl -X POST /api/agent/deploy (see <vetka_context>).' }
+                  const result = { error: 'Unknown tool. To publish, call get_deploy_credentials then POST /api/agent/deploy.' }
                   await client.beta.sessions.events.send(sessionId, {
                     events: [{
                       type: 'user.custom_tool_result' as any,

@@ -46,7 +46,7 @@ Split view: iframe (live site preview) + chat (Anthropic Managed Agent). A "Vers
 /api/auth/*                 BetterAuth (email OTP + Google + GitHub, session)
 /api/agent/session          Get or create Anthropic Managed Agent session
 /api/agent/stream           SSE stream for agent responses
-/api/agent/deploy           Deploy relay — agent POSTs built files (Bearer = session id)
+/api/agent/deploy           Deploy relay — agent POSTs built files (Bearer = short-lived deploy token)
 /api/serve/$                Static serving for *.web.sh (resolves Host → site → storage)
 /api/sites/$domain/snapshots  List deploy snapshots / POST to roll back
 /api/notch/me               CORS + credentials — returns current user for Notch widget
@@ -61,6 +61,7 @@ session           BetterAuth core
 account           BetterAuth core (OAuth tokens; no passwords — OTP/Google only)
 verification      BetterAuth core (also holds email OTP codes)
 agentSession      userId(unique) → user · sessionId (Anthropic session ID)
+deployToken       siteId → site · tokenHash(unique) · expiresAt  (short-lived deploy creds)
 site              id · domain(unique) · userId → user · kind(external|generated)
                     · subdomain(unique, generated only) · status(draft|building|live|error)
                     · buildLog · liveSnapshotId → siteSnapshot (current live version)
@@ -149,10 +150,14 @@ Generated sites are static files in object storage, served from the wildcard sub
   target Cloudflare R2 via `R2_ENDPOINT`/`R2_BUCKET`, also works with AWS S3). Selected by
   `STORAGE_DRIVER` or the presence of bucket creds. Layout: `sites/<id>/live/` (served) and
   `sites/<id>/snapshots/<snapshotId>/` (immutable versions).
-- **Deploy** (`src/lib/deploy.server.ts` + `/api/agent/deploy`): the agent bundles with bun and
-  POSTs the built files (JSON `{ files: [{ path, contentBase64 }] }`, Bearer = its session id).
-  Each deploy writes a snapshot, republishes it to `live/`, and points `site.liveSnapshotId` at it.
-  `rollbackSite()` re-publishes an older snapshot.
+- **Deploy** (`src/lib/deploy.server.ts` + `/api/agent/deploy`): the agent bundles with bun, calls
+  the `get_deploy_credentials` custom tool to get a short-lived per-site **deploy token**
+  (`src/lib/deploy-token.server.ts`, default 2h, stored hashed in `deploy_token`), then POSTs the
+  built files (JSON `{ files: [{ path, contentBase64 }] }`, `Bearer <deploy token>`). The token
+  determines the target site (the agent can't deploy elsewhere). Each deploy writes a snapshot,
+  republishes it to `live/`, and points `site.liveSnapshotId` at it. `rollbackSite()` re-publishes
+  an older snapshot. On an expired token the relay returns 401 `code: "token_expired"` and the
+  agent refreshes via the tool.
 - **Serving** (`/api/serve/$`): resolves the request `Host` (`<sub>.web.sh`) → `site.subdomain` →
   storage `live/` prefix and streams the file (SPA fallback to `index.html`). The reverse proxy
   fronting `*.web.sh` forwards here preserving `Host` (may also pass `X-Vetka-Subdomain`).
@@ -203,7 +208,7 @@ To update the system prompt/tools, edit and re-run `scripts/update-agent.mjs` �
 ### Per-user session flow
 
 1. `GET /api/agent/session` — calls `getOrCreateSession(userId)`, which looks up `agentSession` table or calls `client.beta.sessions.create({ agent: AGENT_ID, environment_id: ENV_ID })` and persists the new `sessionId` (no SSH keys — deploys are storage-based). Then loads history via `client.beta.sessions.events.list(sessionId)`, sorts by `processed_at`, and reconstructs `ChatMessage[]`.
-2. `POST /api/agent/stream` — prepends a `<vetka_context>` block (prod URL + the deploy-relay curl command bearing the session id) to the user message, sends it via `client.beta.sessions.events.send()`, then streams back SSE events until `session.status_idle`. Deploys go through `/api/agent/deploy` (curl), so there are no custom tools.
+2. `POST /api/agent/stream` — prepends a `<vetka_context>` block (site id, prod URL, deploy curl template) to the user message, sends it via `client.beta.sessions.events.send()`, then streams back SSE events until `session.status_idle`. The agent calls the `get_deploy_credentials` custom tool, which the stream handler services by minting a short-lived deploy token (real token to the agent, redacted in the client stream); the agent then curls `/api/agent/deploy` with it.
 
 ### Event model (critical)
 

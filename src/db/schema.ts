@@ -62,8 +62,8 @@ export const verification = pgTable('verification', {
 // ---------------------------------------------------------------------------
 // Agent sessions — one persistent Anthropic Managed Agent session per user.
 // The session is the live dev sandbox + conversation history the agent uses to
-// build a generated site. Deploys are authorized by the session id (see
-// /api/agent/deploy), so no SSH keys are stored anymore.
+// build a generated site. Deploys are authorized by short-lived deploy tokens
+// (see deployToken below), not by the session id, so no SSH keys are stored.
 // ---------------------------------------------------------------------------
 
 export const agentSession = pgTable('agent_session', {
@@ -76,6 +76,28 @@ export const agentSession = pgTable('agent_session', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
+
+// ---------------------------------------------------------------------------
+// Deploy tokens — short-lived, per-site credentials for the build agent.
+// The agent obtains one via the `get_deploy_credentials` custom tool, then
+// authorizes POST /api/agent/deploy with it. Only the SHA-256 hash is stored;
+// the plaintext is returned to the agent once. Tokens expire (default 2h) and
+// the agent refreshes by calling the tool again when a deploy is rejected.
+// ---------------------------------------------------------------------------
+
+export const deployToken = pgTable(
+  'deploy_token',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    siteId: uuid('site_id')
+      .notNull()
+      .references(() => site.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull().unique(),
+    expiresAt: timestamp('expires_at').notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('deploy_token_site').on(t.siteId), index('deploy_token_expires').on(t.expiresAt)],
+)
 
 // ---------------------------------------------------------------------------
 // Sites — the primary social entity. A site is either:

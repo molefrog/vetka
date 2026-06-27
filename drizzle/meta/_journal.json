@@ -15,6 +15,13 @@
       "when": 1782589100000,
       "tag": "0001_pr_schema_changes",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782589200000,
+      "tag": "0002_deploy_tokens",
+      "breakpoints": true
     }
   ]
 }
