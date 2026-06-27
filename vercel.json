@@ -1,4 +1,11 @@
 {
   "buildCommand": "bun run build",
-  "framework": null
+  "framework": null,
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "(?<sub>[^.]+)\\.vetka\\.sh" }],
+      "destination": "/api/serve/$1"
+    }
+  ]
 }
