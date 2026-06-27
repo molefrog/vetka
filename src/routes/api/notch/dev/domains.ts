@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { desc, eq } from 'drizzle-orm'
+import { desc } from 'drizzle-orm'
 import { db } from '../../../../db'
 import { site } from '../../../../db/schema'
 import { corsJson, corsOptions, getViewer } from '../../../../lib/notch-social'

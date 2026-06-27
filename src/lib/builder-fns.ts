@@ -9,9 +9,8 @@ export const getBuilderSiteData = createServerFn({ method: 'GET' })
 
     const [siteRow] = await db
       .select({
-        isTangled: site.isTangled,
-        repoName: site.repoName,
-        repoKnot: site.repoKnot,
+        kind: site.kind,
+        subdomain: site.subdomain,
         status: site.status,
       })
       .from(site)

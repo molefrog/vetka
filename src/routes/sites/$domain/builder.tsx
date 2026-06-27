@@ -48,12 +48,14 @@ type StreamEvent =
   | { done: true }
   | { error: string }
 
-type Commit = {
-  sha: string
-  commit: {
-    message: string
-    author: { name: string; date: string }
-  }
+type Snapshot = {
+  id: string
+  status: string
+  message: string | null
+  fileCount: number
+  byteSize: number
+  triggeredBy: string
+  createdAt: string
 }
 
 // ---------------------------------------------------------------------------
@@ -271,7 +273,7 @@ function PreviewPlaceholder({ domain, status }: { domain: string; status: string
 }
 
 // ---------------------------------------------------------------------------
-// Commits tab
+// Versions tab — deploy snapshots with rollback
 // ---------------------------------------------------------------------------
 
 function relativeTime(dateStr: string): string {
@@ -286,30 +288,61 @@ function relativeTime(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString()
 }
 
-function CommitsPanel({ domain, isTangled }: { domain: string; isTangled: boolean }) {
-  const [commits, setCommits] = useState<Commit[]>([])
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function VersionsPanel({ domain, isGenerated }: { domain: string; isGenerated: boolean }) {
+  const [snapshots, setSnapshots] = useState<Snapshot[]>([])
+  const [liveId, setLiveId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!isTangled) return
+  async function load() {
     setLoading(true)
     setError(null)
-    fetch(`/api/sites/${encodeURIComponent(domain)}/commits`)
-      .then((r) => r.json())
-      .then((data) => {
-        setCommits(data.commits ?? [])
-        if (data.error) setError(data.error)
-      })
-      .catch((e) => setError(String(e)))
-      .finally(() => setLoading(false))
-  }, [domain, isTangled])
+    try {
+      const res = await fetch(`/api/sites/${encodeURIComponent(domain)}/snapshots`)
+      const data = await res.json()
+      setSnapshots(data.snapshots ?? [])
+      setLiveId(data.liveSnapshotId ?? null)
+      if (data.error) setError(data.error)
+    } catch (e) {
+      setError(String(e))
+    } finally {
+      setLoading(false)
+    }
+  }
 
-  if (!isTangled) {
+  useEffect(() => {
+    if (isGenerated) load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [domain, isGenerated])
+
+  async function rollback(id: string) {
+    setBusyId(id)
+    try {
+      const res = await fetch(`/api/sites/${encodeURIComponent(domain)}/snapshots`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+      const data = await res.json()
+      if (!data.ok) setError(data.error ?? 'Rollback failed')
+      else await load()
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  if (!isGenerated) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <p className="text-xs text-zinc-400 text-center max-w-[200px]">
-          Commit history is only available for Tangled-based sites.
+        <p className="text-xs text-zinc-400 text-center max-w-[220px]">
+          Version history is available for sites generated on web.sh.
         </p>
       </div>
     )
@@ -325,49 +358,53 @@ function CommitsPanel({ domain, isTangled }: { domain: string; isTangled: boolea
     )
   }
 
-  if (commits.length === 0) {
+  if (snapshots.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <p className="text-xs text-zinc-400">{error ? `Could not load commits: ${error}` : 'No commits yet.'}</p>
+        <p className="text-xs text-zinc-400">{error ? `Could not load versions: ${error}` : 'No deploys yet.'}</p>
       </div>
     )
   }
 
   return (
     <div className="flex-1 overflow-y-auto px-4 py-4">
-      <div className="relative">
-        {/* Vertical rail */}
-        <div className="absolute top-2 bottom-2 left-[5px] w-px bg-zinc-200" />
-
-        <div className="space-y-0">
-          {commits.map((c) => {
-            const sha = c.sha.slice(0, 7)
-            const subject = c.commit.message.split('\n')[0]
-            const author = c.commit.author.name
-            const when = relativeTime(c.commit.author.date)
-
-            return (
-              <div key={c.sha} className="relative flex gap-3 pb-4 last:pb-0">
-                {/* Node dot */}
-                <div className="relative z-10 mt-1 shrink-0">
-                  <span className="block size-2.5 rounded-full bg-white border-2 border-zinc-300" />
-                </div>
-
-                {/* Commit info */}
-                <div className="min-w-0 flex-1 pt-px">
-                  <p className="text-sm text-zinc-800 leading-snug line-clamp-2 mb-1">{subject}</p>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-[11px] text-zinc-400 bg-zinc-100 px-1.5 py-0.5 rounded">
-                      {sha}
-                    </span>
-                    <span className="text-xs text-zinc-400">{author}</span>
-                    <span className="text-xs text-zinc-400 ml-auto shrink-0">{when}</span>
-                  </div>
-                </div>
+      {error && <p className="text-xs text-red-600 mb-2">{error}</p>}
+      <div className="space-y-2">
+        {snapshots.map((s) => {
+          const isLive = s.id === liveId
+          const canRollback = s.status === 'success' && !isLive
+          return (
+            <div key={s.id} className="border border-zinc-200 rounded-lg px-3 py-2.5">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-zinc-800 truncate flex-1">{s.message || 'Deploy'}</span>
+                {isLive && (
+                  <span className="text-[10px] uppercase tracking-wide text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded">
+                    Live
+                  </span>
+                )}
+                {s.status !== 'success' && (
+                  <span className="text-[10px] uppercase tracking-wide text-zinc-400">{s.status}</span>
+                )}
               </div>
-            )
-          })}
-        </div>
+              <div className="mt-1 flex items-center gap-2 text-xs text-zinc-400">
+                <span>{relativeTime(s.createdAt)}</span>
+                {s.status === 'success' && (
+                  <span>· {s.fileCount} files · {formatBytes(s.byteSize)}</span>
+                )}
+                {canRollback && (
+                  <button
+                    type="button"
+                    onClick={() => rollback(s.id)}
+                    disabled={busyId === s.id}
+                    className="ml-auto text-xs border border-zinc-200 px-2 py-0.5 rounded hover:border-black disabled:opacity-40"
+                  >
+                    {busyId === s.id ? 'Rolling back…' : 'Roll back'}
+                  </button>
+                )}
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -381,12 +418,12 @@ function TabBar({
   active,
   onChange,
 }: {
-  active: 'chat' | 'commits'
-  onChange: (tab: 'chat' | 'commits') => void
+  active: 'chat' | 'versions'
+  onChange: (tab: 'chat' | 'versions') => void
 }) {
   return (
     <div className="flex items-center gap-0.5 bg-black/[0.06] rounded-lg p-0.5">
-      {(['chat', 'commits'] as const).map((tab) => (
+      {(['chat', 'versions'] as const).map((tab) => (
         <button
           key={tab}
           type="button"
@@ -413,7 +450,7 @@ function BuilderPage() {
   const { site: siteData } = Route.useLoaderData()
   const { data: session } = useSession()
 
-  const [tab, setTab] = useState<'chat' | 'commits'>('chat')
+  const [tab, setTab] = useState<'chat' | 'versions'>('chat')
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
@@ -750,7 +787,7 @@ function BuilderPage() {
               </div>
             </>
           ) : (
-            <CommitsPanel domain={domain} isTangled={siteData?.isTangled ?? false} />
+            <VersionsPanel domain={domain} isGenerated={siteData?.kind === 'generated'} />
           )}
         </div>
       </div>

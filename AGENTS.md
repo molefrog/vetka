@@ -4,47 +4,51 @@ A social layer for the personal web. People connect their websites, follow each 
 
 ## User types
 
-**Regular user** — signs up with email/password, connects an existing website domain. Notch widget is installed by pasting a `<script>` tag. No agent access; can see the hub and interact socially.
+Everyone signs in the same way — passwordless **email OTP** or **Google** — and gets one site. There are two kinds of site:
 
-**Tangled user** — signs in via AT Protocol / Tangled OAuth. Selects a Tangled git repo as their site. Gets full Notch + Anthropic Managed Agent access for AI-assisted site building.
+**External site** — the user connects a website they already own by pasting the Notch `<script>` tag. `site.kind = 'external'`, `domain` is their own domain. Social-only; no agent.
+
+**Generated site** — the user picks a free `name.web.sh` address and the Anthropic Managed Agent builds a static React/Tailwind site that Vetka hosts (served from object storage). `site.kind = 'generated'`, `subdomain` is the label, `domain` is `<subdomain>.web.sh`.
 
 Both converge on the same social layer: follow, feed, reactions, messages.
 
 ## User flows
 
 ### Onboarding (post-login)
-`getPostLoginDestination()` decides where to send the user after login:
-- Has site → `/` (hub)
-- No site + Tangled identity → `/setup/tangled`
-- No site + no Tangled → `/setup/script`
+`getPostLoginDestination()` sends the user to `/` if they already have a site, otherwise to `/setup`.
 
-### Tangled setup (`/setup/tangled`)
-1. `beforeLoad` guards auth; `loader` fetches `getTangledIdentity()` — redirects to `/setup/script` if no Tangled identity
-2. Client-side: `listRepos()` via AT Protocol (needs browser OAuth session — can't run server-side)
-3. User picks a repo → `createSite()` → redirect to `/sites/$domain/builder`
+### Setup choice (`/setup`)
+Two options: "Connect an existing website" → `/setup/script`, or "Generate a new site" → `/setup/generate`.
+
+### Generate setup (`/setup/generate`)
+1. `beforeLoad` guards auth
+2. User picks a subdomain label → `checkSubdomain()` validates availability → `createSite({ kind: 'generated', subdomain })`
+3. Redirect to `/sites/$domain/builder` where the agent builds it
 
 ### External site setup (`/setup/script`)
 1. `beforeLoad` guards auth
 2. User enters domain → sees `<script>` tag to paste
-3. Polls `/api/notch/check?domain=` every 5s → on detection, `createSite()` → redirect to `/`
+3. Polls `/api/notch/check?domain=` every 5s → on detection, `createSite({ kind: 'external' })` → redirect to `/`
 
 ### Builder (`/sites/$domain/builder`)
-Split view: iframe (site preview) + chat (Anthropic Managed Agent). Auth guard in `beforeLoad`; agent session fetched client-side via `/api/agent/session`.
+Split view: iframe (live site preview) + chat (Anthropic Managed Agent). A "Versions" tab lists deploy snapshots and can roll back. Auth guard in `beforeLoad`; agent session fetched client-side via `/api/agent/session`.
 
 ## Routes
 
 ```
 /                           Hub: feed, notifications, new members, login modal
-/callback                   AT Protocol OAuth callback (resolves DID → handle via plc.directory)
-/setup/tangled              Pick Tangled repo (Tangled users only)
-/setup/script               Paste script tag (regular users)
+/setup                      Onboarding choice (connect existing vs generate)
+/setup/script               Paste script tag (external site)
+/setup/generate             Pick a *.web.sh subdomain (generated site)
 /sites                      User's sites list (one site max for now)
-/sites/$domain/builder      Agent + site preview
+/sites/$domain/builder      Agent + live preview + versions
 
-/api/auth/*                 BetterAuth (email/pass, session)
-/api/oauth/client-metadata  AT Protocol client metadata
+/api/auth/*                 BetterAuth (email OTP + Google, session)
 /api/agent/session          Get or create Anthropic Managed Agent session
 /api/agent/stream           SSE stream for agent responses
+/api/agent/deploy           Deploy relay — agent POSTs built files (Bearer = session id)
+/api/serve/$                Static serving for *.web.sh (resolves Host → site → storage)
+/api/sites/$domain/snapshots  List deploy snapshots / POST to roll back
 /api/notch/me               CORS + credentials — returns current user for Notch widget
 /api/notch/check            Server-side check if notch.js is on a domain
 ```
@@ -54,18 +58,23 @@ Split view: iframe (site preview) + chat (Anthropic Managed Agent). Auth guard i
 ```
 user              BetterAuth core
 session           BetterAuth core
-account           BetterAuth core (passwords, OAuth tokens)
-verification      BetterAuth core
-tangledIdentity   did(pk) · handle · userId → user · selectedRepo{Uri,Name,Knot}
+account           BetterAuth core (OAuth tokens; no passwords — OTP/Google only)
+verification      BetterAuth core (also holds email OTP codes)
 agentSession      userId(unique) → user · sessionId (Anthropic session ID)
-                    · sshPrivateKey · sshPublicKey · sshKeyFileId
-site              id · domain(unique) · userId → user · isTangled · did → tangledIdentity
-                    · repo{Uri,Name,Knot} · status(draft|building|live|error) · buildLog
+site              id · domain(unique) · userId → user · kind(external|generated)
+                    · subdomain(unique, generated only) · status(draft|building|live|error)
+                    · buildLog · liveSnapshotId → siteSnapshot (current live version)
+siteSnapshot      id · siteId → site · storagePrefix · fileCount · byteSize · message
+                    · status(pending|building|success|failed) · triggeredBy(agent|manual)
+siteImage         siteId → site · WebP blob (page thumbnail; capture still a stub)
 follow            followerId → site · followeeId → site  (unique pair)
 message           fromId → site · toId → site · body · readAt
 reaction          pageUrl(indexed) · siteId → site · authorUserId → user
                     · emoji · x · y (0–100% position) · body (optional comment)
 ```
+
+Schema is applied with `bunx drizzle-kit push` (interactive). For the Tangled→generated-sites
+migration, `scripts/migrate-remove-tangled.sql` has the equivalent raw SQL.
 
 ## TanStack Start patterns
 
@@ -120,13 +129,32 @@ export const getUserSites = createServerFn({ method: 'GET' }).handler(async () =
 
 ## Auth
 
+Passwordless only.
+
 | Provider | Flow |
 |---|---|
-| Email/password | BetterAuth built-in |
-| Tangled (AT Protocol) | `@atcute/oauth-browser-client` → `/callback` resolves DID via `plc.directory` → custom `/api/auth/sign-in/tangled` endpoint creates BetterAuth session |
+| Email OTP | BetterAuth `emailOTP` plugin. `authClient.emailOtp.sendVerificationOtp({ email, type: 'sign-in' })` emails a 6-digit code (via `sendOtpEmail` in `email.server.ts` — Resend if `RESEND_API_KEY` is set, else console-logged in dev), then `signIn.emailOtp({ email, otp })`. First-time emails auto-create the user. |
+| Google | BetterAuth social provider, enabled when `GOOGLE_CLIENT_ID` is set. `signIn.social({ provider: 'google' })`. |
 
 `trustedOrigins` in `auth.server.ts` must include all domains (vetka.sh, tailscale URL, localhost).  
 `disableCSRFCheck: true` is set for non-production to allow cross-origin dev logins.
+
+## Hosting generated sites
+
+Generated sites are static files in object storage, served from the wildcard subdomain.
+
+- **Storage** (`src/lib/storage.server.ts`): a `Storage` interface with two drivers — `local`
+  (filesystem under `STORAGE_LOCAL_DIR`, dev default) and `s3` (any S3-compatible bucket; defaults
+  target Cloudflare R2 via `R2_ENDPOINT`/`R2_BUCKET`, also works with AWS S3). Selected by
+  `STORAGE_DRIVER` or the presence of bucket creds. Layout: `sites/<id>/live/` (served) and
+  `sites/<id>/snapshots/<snapshotId>/` (immutable versions).
+- **Deploy** (`src/lib/deploy.server.ts` + `/api/agent/deploy`): the agent bundles with bun and
+  POSTs the built files (JSON `{ files: [{ path, contentBase64 }] }`, Bearer = its session id).
+  Each deploy writes a snapshot, republishes it to `live/`, and points `site.liveSnapshotId` at it.
+  `rollbackSite()` re-publishes an older snapshot.
+- **Serving** (`/api/serve/$`): resolves the request `Host` (`<sub>.web.sh`) → `site.subdomain` →
+  storage `live/` prefix and streams the file (SPA fallback to `index.html`). The reverse proxy
+  fronting `*.web.sh` forwards here preserving `Host` (may also pass `X-Vetka-Subdomain`).
 
 ## Notch cross-origin auth
 
@@ -137,17 +165,15 @@ The widget runs on third-party sites and calls `vetka.sh/api/notch/*` with `cred
 ## Stack
 
 - TanStack Start (Vite + React + SSR) + Tailwind v4 + TypeScript
-- BetterAuth 1.6 — sessions, DB-backed
-- `@atcute/oauth-browser-client` — AT Protocol OAuth (DPoP, browser-only)
-- `@atcute/identity-resolver` — handle/DID resolution
-- `@atcute/tangled` + `@atcute/atproto` — XRPC typed client + lexicons
-- Anthropic Managed Agents SDK — persistent per-user agent sessions
+- BetterAuth 1.6 — sessions, DB-backed (email OTP + Google)
+- Anthropic Managed Agents SDK — persistent per-user agent sessions (build generated sites)
+- `@aws-sdk/client-s3` — S3-compatible object storage (Cloudflare R2 / AWS S3) for hosted sites
 - Drizzle ORM + postgres.js → Aiven PostgreSQL 17
 - bunup — Notch widget bundler (`notch/` → `public/notch.js`)
 
 ## Dev
 
-- App: `bun run dev` (access via tailscale URL for Tangled OAuth)
+- App: `bun run dev`
 - Notch widget: `bun run dev:notch` — **must run in a separate terminal**; watches `notch/src/` and rebuilds `public/notch.js` on every change. Without this, the widget served at `/notch.js` is a stale build.
 - Schema changes: edit `src/db/schema.ts` → `bunx drizzle-kit push` (needs interactive TTY — run in terminal with `!`)
 - Nitro is excluded from dev (`vite.config.ts`) to avoid breaking TanStack's dev middleware
@@ -167,16 +193,16 @@ Docs: https://platform.claude.com/docs/en/managed-agents/overview
 
 We use a **single global agent** (not per-user) with **per-user sessions**. The agent holds the system prompt and tool config; the session is the live sandbox + conversation history for one user.
 
-Constants in `src/lib/agent.server.ts`:
-- `AGENT_ID = 'agent_019VzGQn8ggkHmQxrDrHcJjU'` — managed in the Anthropic console, currently version 5+
-- `ENV_ID = 'env_016Mr6pEcERwBFoo1Jmzv8Yu'` — the cloud sandbox environment (Linux container)
+Constants in `src/lib/agent.server.ts` (overridable via `ANTHROPIC_AGENT_ID` / `ANTHROPIC_ENV_ID`):
+- `AGENT_ID = 'agent_019VzGQn8ggkHmQxrDrHcJjU'` — managed in the Anthropic console
+- `ENV_ID = 'env_01AKeJed2CAzKMdAMmQ3zTnN'` — the cloud sandbox environment (Linux container)
 
-To update the system prompt, edit and re-run `scripts/update-agent.mjs` — it retrieves the current agent version (required for optimistic locking) then calls `client.beta.agents.update()`.
+To update the system prompt/tools, edit and re-run `scripts/update-agent.mjs` — it retrieves the current agent version (required for optimistic locking) then calls `client.beta.agents.update()`.
 
 ### Per-user session flow
 
-1. `GET /api/agent/session` — calls `getOrCreateSession(userId)`, which looks up `agentSession` table or calls `client.beta.sessions.create({ agent: AGENT_ID, environment_id: ENV_ID })` and persists the new `sessionId`. Then loads history by calling `client.beta.sessions.events.list(sessionId)`, sorting events by `processed_at`, and reconstructing `ChatMessage[]`.
-2. `POST /api/agent/stream` — prepends a `<vetka_context>` block (repo URL, prod URL, git instructions) to the user message, sends it via `client.beta.sessions.events.send()`, then streams back SSE events until `session.status_idle`.
+1. `GET /api/agent/session` — calls `getOrCreateSession(userId)`, which looks up `agentSession` table or calls `client.beta.sessions.create({ agent: AGENT_ID, environment_id: ENV_ID })` and persists the new `sessionId` (no SSH keys — deploys are storage-based). Then loads history via `client.beta.sessions.events.list(sessionId)`, sorts by `processed_at`, and reconstructs `ChatMessage[]`.
+2. `POST /api/agent/stream` — prepends a `<vetka_context>` block (prod URL + the deploy-relay curl command bearing the session id) to the user message, sends it via `client.beta.sessions.events.send()`, then streams back SSE events until `session.status_idle`. Deploys go through `/api/agent/deploy` (curl), so there are no custom tools.
 
 ### Event model (critical)
 
@@ -195,7 +221,7 @@ Tool events are **separate stream events**, not embedded in `agent.message.conte
 
 ### Context injection
 
-Each user message gets a `<vetka_context>` XML prefix with the user's repo URL and prod URL. When reconstructing history in `session.ts`, this prefix is stripped via regex before returning messages to the client.
+Each user message gets a `<vetka_context>` XML prefix with the generated site's prod URL and deploy-relay instructions. When reconstructing history in `session.ts`, this prefix is stripped via regex before returning messages to the client.
 
 ### MCP servers
 

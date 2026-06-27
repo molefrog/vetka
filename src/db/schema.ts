@@ -60,25 +60,10 @@ export const verification = pgTable('verification', {
 })
 
 // ---------------------------------------------------------------------------
-// Tangled / AT Protocol identity
-// ---------------------------------------------------------------------------
-
-export const tangledIdentity = pgTable('tangled_identity', {
-  did: text('did').primaryKey(),
-  handle: text('handle').notNull(),
-  userId: text('user_id').references(() => user.id, { onDelete: 'set null' }),
-  selectedRepoUri: text('selected_repo_uri'),
-  selectedRepoName: text('selected_repo_name'),
-  selectedRepoKnot: text('selected_repo_knot'),
-  sshPrivateKey: text('ssh_private_key'),
-  sshPublicKey: text('ssh_public_key'),
-  sshKeyFileId: text('ssh_key_file_id'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-})
-
-// ---------------------------------------------------------------------------
-// Agent sessions — one persistent Anthropic Managed Agent session per user
+// Agent sessions — one persistent Anthropic Managed Agent session per user.
+// The session is the live dev sandbox + conversation history the agent uses to
+// build a generated site. Deploys are authorized by the session id (see
+// /api/agent/deploy), so no SSH keys are stored anymore.
 // ---------------------------------------------------------------------------
 
 export const agentSession = pgTable('agent_session', {
@@ -88,28 +73,31 @@ export const agentSession = pgTable('agent_session', {
     .references(() => user.id, { onDelete: 'cascade' })
     .unique(),
   sessionId: text('session_id').notNull().unique(),
-  sshPrivateKey: text('ssh_private_key'),
-  sshPublicKey: text('ssh_public_key'),
-  sshKeyFileId: text('ssh_key_file_id'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
 
 // ---------------------------------------------------------------------------
-// Sites — the primary social entity (one per tangled identity or external domain)
+// Sites — the primary social entity. A site is either:
+//   - kind 'external'  : an existing website the user connected via the Notch
+//                        <script> tag. `domain` is their own domain.
+//   - kind 'generated' : a site built by the agent and hosted by us on a
+//                        wildcard subdomain. `subdomain` is the *.web.sh label
+//                        and `domain` is the full host (e.g. "evan.web.sh").
 // ---------------------------------------------------------------------------
 
 export const site = pgTable('site', {
   id: uuid('id').primaryKey().defaultRandom(),
   domain: text('domain').notNull().unique(),
   userId: text('user_id').references(() => user.id, { onDelete: 'set null' }),
-  isTangled: boolean('is_tangled').notNull().default(false),
-  did: text('did').references(() => tangledIdentity.did, { onDelete: 'set null' }),
-  repoUri: text('repo_uri'),
-  repoName: text('repo_name'),
-  repoKnot: text('repo_knot'),
+  // 'external' | 'generated'
+  kind: text('kind').notNull().default('external'),
+  // Only set for generated sites — the <subdomain>.web.sh label, globally unique.
+  subdomain: text('subdomain').unique(),
   status: text('status').notNull().default('draft'), // draft | building | live | error
   buildLog: text('build_log'),
+  // The snapshot currently served from storage (rollback target / live pointer).
+  liveSnapshotId: uuid('live_snapshot_id'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
@@ -168,8 +156,12 @@ export const siteImage = pgTable(
 )
 
 // ---------------------------------------------------------------------------
-// Site snapshots — one row per agent-triggered build/commit/push.
-// Screenshot capture is intentionally left as a stub (imageId nullable).
+// Site snapshots — one immutable version per agent deploy. The built static
+// files for a snapshot live in storage under `storagePrefix` (see
+// src/lib/storage.server.ts); the "live" copy of a site is whichever snapshot
+// `site.liveSnapshotId` points at. Rolling back = re-publishing an older
+// snapshot's files and moving the pointer. Screenshot capture (imageId) is
+// still a stub.
 // ---------------------------------------------------------------------------
 
 export const siteSnapshot = pgTable('site_snapshot', {
@@ -178,9 +170,12 @@ export const siteSnapshot = pgTable('site_snapshot', {
     .notNull()
     .references(() => site.id, { onDelete: 'cascade' }),
   imageId: uuid('image_id').references(() => siteImage.id, { onDelete: 'set null' }),
-  commitSha: text('commit_sha'),
-  commitMessage: text('commit_message'),
-  branch: text('branch').notNull().default('main'),
+  // Storage key prefix holding this version's built files, e.g.
+  // "sites/<siteId>/snapshots/<snapshotId>/".
+  storagePrefix: text('storage_prefix'),
+  fileCount: integer('file_count').notNull().default(0),
+  byteSize: integer('byte_size').notNull().default(0),
+  message: text('message'),
   // 'pending' | 'building' | 'success' | 'failed'
   status: text('status').notNull().default('pending'),
   // 'agent' | 'manual'

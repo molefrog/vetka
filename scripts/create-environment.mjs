@@ -10,8 +10,10 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 const CONFIG = {
   type: 'cloud',
   packages: {
-    apt: ['openssh-client'],  // pre-installed so SSH push works without setup.sh
-    pip: ['playwright'],      // browser downloaded on first use via setup.sh
+    // curl/unzip let the agent install bun (https://bun.sh/install) if it isn't
+    // already present; bun provides the bundler used to build the static site.
+    apt: ['curl', 'unzip', 'ca-certificates'],
+    pip: ['playwright'],      // browser downloaded on first use, for screenshots
   },
   networking: { type: 'unrestricted' },
 }

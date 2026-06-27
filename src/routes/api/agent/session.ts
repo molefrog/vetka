@@ -19,7 +19,7 @@ export const Route = createFileRoute('/api/agent/session')({
           return Response.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const { sessionId, sshPublicKey } = await getOrCreateSession(session.user.id)
+        const { sessionId } = await getOrCreateSession(session.user.id)
 
         const client = getAnthropicClient()
         const rawEvents: Array<{ type: string; id?: string; processed_at: string; [k: string]: unknown }> = []
@@ -72,7 +72,7 @@ export const Route = createFileRoute('/api/agent/session')({
           }
         }
 
-        return Response.json({ sessionId, sshPublicKey, history: messages })
+        return Response.json({ sessionId, history: messages })
       },
     },
   },

@@ -16,12 +16,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.106.0",
-    "@atcute/atproto": "^4.0.2",
-    "@atcute/client": "^5.1.0",
-    "@atcute/identity-resolver": "^2.0.0",
-    "@atcute/lexicons": "^2.0.1",
-    "@atcute/oauth-browser-client": "^4.0.0",
-    "@atcute/tangled": "^2.0.8",
+    "@aws-sdk/client-s3": "^3.726.0",
     "@instantdb/react": "^1.0.49",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-devtools": "latest",
