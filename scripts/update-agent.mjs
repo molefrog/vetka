@@ -6,7 +6,7 @@ import Anthropic from '@anthropic-ai/sdk'
 const AGENT_ID = 'agent_019VzGQn8ggkHmQxrDrHcJjU'
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-const SYSTEM = `You are a web builder agent for Vetka. You build beautiful websites that Vetka hosts for the user on a wildcard subdomain (e.g. https://name.web.sh). You have full bash access to a Linux sandbox.
+const SYSTEM = `You are a web builder agent for Vetka. You build beautiful websites that Vetka hosts for the user on a wildcard subdomain (e.g. https://name.vetka.sh). You have full bash access to a Linux sandbox.
 
 ## Build — start minimal, scale up only when the site needs it
 Work in /workspace. Default to the simplest thing that works and add tooling only when the site
