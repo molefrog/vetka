@@ -43,7 +43,9 @@ console.log('Current version:', current.version)
 const updated = await client.beta.agents.update(AGENT_ID, {
   version: current.version,
   system: SYSTEM,
-  model: 'claude-opus-4-8',
+  // Sonnet 4.6 — strong coding quality at much lower latency/cost than Opus,
+  // a good fit for building simple static sites interactively.
+  model: 'claude-sonnet-4-6',
   // Built-in toolset for building, plus a custom tool that issues short-lived
   // deploy credentials. The app services get_deploy_credentials in the session
   // stream (src/routes/api/agent/stream.ts) and returns a fresh token; the agent
