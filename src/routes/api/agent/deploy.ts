@@ -6,9 +6,12 @@ import { agentSession, site } from '../../../db/schema'
 // POST /api/agent/deploy
 // Called by the build agent (not the browser) to publish a generated site.
 // Auth: Bearer <managed-agent session id>. Body: JSON
-//   { "files": [{ "path": "index.html", "contentBase64": "..." }, ...], "message"?: "..." }
-// Publishes the files to storage as a new immutable snapshot and points the
-// site's live version at it. Returns { ok, url, snapshotId, fileCount }.
+//   { "siteId": "<uuid>", "files": [{ "path": "index.html", "contentBase64": "..." }, ...], "message"?: "..." }
+// The agent gets its target siteId from the <vetka_context> block injected into
+// each message. We resolve the deploy target explicitly by that id and verify it
+// belongs to the authenticated session's user (and is a generated site) — never
+// trusting the agent to deploy to an arbitrary site. Publishes the files to
+// storage as a new immutable snapshot and points the live version at it.
 export const Route = createFileRoute('/api/agent/deploy')({
   server: {
     handlers: {
@@ -27,20 +30,25 @@ export const Route = createFileRoute('/api/agent/deploy')({
           return Response.json({ ok: false, error: 'Invalid session token' }, { status: 401 })
         }
 
-        const [siteRow] = await db
-          .select({ id: site.id })
-          .from(site)
-          .where(and(eq(site.userId, sess.userId), eq(site.kind, 'generated')))
-          .limit(1)
-        if (!siteRow) {
-          return Response.json({ ok: false, error: 'No generated site for this user' }, { status: 404 })
-        }
-
-        let payload: { files?: Array<{ path?: string; contentBase64?: string }>; message?: string }
+        let payload: { siteId?: string; files?: Array<{ path?: string; contentBase64?: string }>; message?: string }
         try {
           payload = await request.json()
         } catch {
           return Response.json({ ok: false, error: 'Invalid JSON body' }, { status: 400 })
+        }
+
+        // Resolve the target site by the explicit siteId when provided (validated
+        // against the session's user), else fall back to the user's single
+        // generated site. Either way the site must belong to this user.
+        const ownership = payload.siteId
+          ? and(eq(site.id, payload.siteId), eq(site.userId, sess.userId), eq(site.kind, 'generated'))
+          : and(eq(site.userId, sess.userId), eq(site.kind, 'generated'))
+        const [siteRow] = await db.select({ id: site.id }).from(site).where(ownership).limit(1)
+        if (!siteRow) {
+          return Response.json(
+            { ok: false, error: payload.siteId ? 'Site not found for this user' : 'No generated site for this user' },
+            { status: 404 },
+          )
         }
 
         const files = (payload.files ?? [])
