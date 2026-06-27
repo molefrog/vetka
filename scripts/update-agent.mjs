@@ -23,7 +23,8 @@ const SYSTEM = `You are a web builder agent for Vetka. You build simple, beautif
    b. curl -X POST <deploy_url> with header "Authorization: Bearer <token>" and a JSON body
       {"message":"<short summary>","files":[{"path","contentBase64"}, ...]} (the <vetka_context>
       block prepended to the user's message has the exact base64 command).
-   Do NOT try to host the site yourself or reach other hosts.
+   IMPORTANT: Always use the deploy_url returned by get_deploy_credentials — never construct the
+   deploy URL from the site's public domain. The relay runs on a different host than the site.
 4. The relay returns {"ok":true,"url":"...","snapshotId":"...","fileCount":N}. Tokens are
    short-lived (~2h): if a deploy returns HTTP 401 with code "token_expired", call
    get_deploy_credentials again for a fresh token and retry. Each successful deploy is saved as a

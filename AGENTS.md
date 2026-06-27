@@ -8,7 +8,7 @@ Everyone signs in the same way — passwordless **email OTP**, **Google**, or **
 
 **External site** — the user connects a website they already own by pasting the Notch `<script>` tag. `site.kind = 'external'`, `domain` is their own domain. Social-only; no agent.
 
-**Generated site** — the user picks a free `name.web.sh` address and the Anthropic Managed Agent builds a static React/Tailwind site that Vetka hosts (served from object storage). `site.kind = 'generated'`, `subdomain` is the label, `domain` is `<subdomain>.web.sh`.
+**Generated site** — the user picks a free `name.vetka.sh` address and the Anthropic Managed Agent builds a static React/Tailwind site that Vetka hosts (served from object storage). `site.kind = 'generated'`, `subdomain` is the label, `domain` is `<subdomain>.vetka.sh`.
 
 Both converge on the same social layer: follow, feed, reactions, messages.
 
@@ -158,9 +158,13 @@ Generated sites are static files in object storage, served from the wildcard sub
   republishes it to `live/`, and points `site.liveSnapshotId` at it. `rollbackSite()` re-publishes
   an older snapshot. On an expired token the relay returns 401 `code: "token_expired"` and the
   agent refreshes via the tool.
-- **Serving** (`/api/serve/$`): resolves the request `Host` (`<sub>.web.sh`) → `site.subdomain` →
-  storage `live/` prefix and streams the file (SPA fallback to `index.html`). The reverse proxy
-  fronting `*.web.sh` forwards here preserving `Host` (may also pass `X-Vetka-Subdomain`).
+- **Serving** (`/api/serve/$`): resolves the request `Host` (`<sub>.vetka.sh`) → `site.subdomain` →
+  storage `live/` prefix and streams the file (SPA fallback to `index.html`). `*.vetka.sh` is
+  configured as a wildcard domain on the Vercel project (registered through Vercel DNS — no extra
+  DNS records needed). All `*.vetka.sh` requests are rewritten to `/api/serve/$path` via
+  `vercel.json`, preserving the original `Host` header so the serve handler can extract the
+  subdomain. The `X-Vetka-Subdomain` header is also accepted as an override (useful for testing:
+  `curl vetka.sh/api/serve/ -H "X-Vetka-Subdomain: name"`).
 
 ## Notch cross-origin auth
 

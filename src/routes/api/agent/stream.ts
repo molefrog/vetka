@@ -183,7 +183,6 @@ export const Route = createFileRoute('/api/agent/stream')({
                       expires_at: expiresAt.toISOString(),
                       ttl_seconds: DEPLOY_TOKEN_TTL_SECONDS,
                       site_id: generated.id,
-                      prod_url: `https://${generated.domain}`,
                     }
                   }
 
