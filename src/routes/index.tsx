@@ -32,15 +32,108 @@ function displayDomain(domain: string): string {
 // Shared bits — soft, Notch-flavoured list primitives
 // ---------------------------------------------------------------------------
 
-// Small-caps section header in the Anthony display face (used outside the notch bar).
-// Anthony is single-weight 400 (synthesis disabled), so presence comes from a larger
-// size + near-black ink rather than font-weight.
+// Small-caps section header as an elevated pill chip (Notch convention) in the
+// Anthony display face. Anthony is single-weight 400 (synthesis disabled), so
+// presence comes from size + a soft grey backing rather than font-weight.
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="px-5 h-13 flex items-center font-display text-[16px] uppercase tracking-[0.1em] text-zinc-900 border-b border-black/[0.08]">
-      {children}
+    <div className="px-3 pt-4 pb-2">
+      <span className="inline-flex items-center rounded-full bg-black/[0.05] px-3.5 py-1.5 font-display text-[15px] uppercase tracking-[0.1em] text-zinc-700">
+        {children}
+      </span>
     </div>
   )
+}
+
+// Feed selector chip — pill with a clear active (filled) vs inactive (ghost) state.
+function TabPill({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={`rounded-full px-4 py-1.5 font-display text-[15px] uppercase tracking-[0.1em] transition-colors ${
+        active
+          ? 'bg-black/[0.06] text-zinc-900'
+          : 'text-zinc-400 hover:bg-black/[0.04] hover:text-zinc-600'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
+// Scroll-direction watcher: drives the sticky header (hide buttons on scroll-down,
+// reveal on scroll-up; `atTop` shrinks the logo to its icon). rAF-throttled, with
+// an 8px dead-zone so small jitters don't flip the direction.
+function useScrollDirection() {
+  const [state, setState] = useState<{ direction: 'up' | 'down'; atTop: boolean }>({
+    direction: 'up',
+    atTop: true,
+  })
+  useEffect(() => {
+    let lastY = window.scrollY
+    let ticking = false
+    function update() {
+      const y = window.scrollY
+      const atTop = y < 24
+      if (Math.abs(y - lastY) > 8) {
+        setState({ direction: y > lastY ? 'down' : 'up', atTop })
+        lastY = y
+      } else {
+        setState((s) => (s.atTop === atTop ? s : { ...s, atTop }))
+      }
+      ticking = false
+    }
+    function onScroll() {
+      if (!ticking) {
+        ticking = true
+        requestAnimationFrame(update)
+      }
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+  return state
+}
+
+// How many sidebar rows fit the pinned rail at the current viewport height, so the
+// rail never scrolls or clips mid-row. Approximate row/header heights (px); recomputed
+// on resize. SSR-safe: seeds with a tall default and refines on mount.
+function useFitCounts(hasNotifications: boolean): { notifCap: number; memberCap: number } {
+  const [h, setH] = useState(typeof window === 'undefined' ? 900 : window.innerHeight)
+  useEffect(() => {
+    const onResize = () => setH(window.innerHeight)
+    onResize()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  const TOP = 64 + 16 // nav zone + first section header's top padding
+  const HEADER = 48 // a SectionLabel pill block
+  const MEMBER_ROW = 44
+  const NOTIF_ROW = 52 // two-line notification row
+  const BOTTOM = 16
+
+  let avail = h - TOP - BOTTOM
+  let notifCap = 0
+  if (hasNotifications) {
+    avail -= HEADER
+    notifCap = Math.min(3, Math.max(0, Math.floor(avail / NOTIF_ROW)))
+    avail -= notifCap * NOTIF_ROW
+  }
+  avail -= HEADER // New members header
+  const memberCap = Math.max(0, Math.floor(avail / MEMBER_ROW))
+  return { notifCap, memberCap }
 }
 
 // Circular monochrome avatar — first letter of the label, Notch row pattern.
@@ -57,12 +150,12 @@ function Avatar({ label }: { label: string }) {
 // capture lands — `FeedSnapshot` falls back to a placeholder in that window.
 const snapshotUrl = (domain: string) => `/api/sites/${encodeURIComponent(domain)}/snapshot`
 
-// Framed 4:3 preview of a followed site's current page (stored snapshots are 800×600).
+// Framed 16:9 preview of a followed site's current page (stored snapshots are 1280×720).
 // Shows a branded placeholder while loading and when no snapshot exists yet.
 function FeedSnapshot({ domain }: { domain: string }) {
   const [state, setState] = useState<'loading' | 'ok' | 'empty'>('loading')
   return (
-    <div className="relative w-full aspect-[4/3] rounded-xl overflow-hidden border border-black/[0.08] bg-black/[0.03]">
+    <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-black/[0.08] bg-black/[0.03]">
       <img
         src={snapshotUrl(domain)}
         alt={`Latest snapshot of ${domain}`}
@@ -90,13 +183,13 @@ function FeedSnapshot({ domain }: { domain: string }) {
 function FeedItem({ item }: { item: FeedUpdate }) {
   return (
     <div className="px-3 py-5 rounded-2xl hover:bg-black/[0.04] transition-colors">
-      <div className="flex gap-6">
+      <div className="flex flex-col gap-4 md:flex-row md:gap-6">
         <a
           href={`https://${item.domain}`}
           target="_blank"
           rel="noopener noreferrer"
           title={`Open ${item.domain}`}
-          className="block w-[520px] max-w-[62%] shrink-0 transition-opacity hover:opacity-90"
+          className="block w-full shrink-0 transition-opacity hover:opacity-90 md:w-[58%] md:max-w-[620px]"
         >
           <FeedSnapshot domain={item.domain} />
         </a>
@@ -134,23 +227,38 @@ function HomePage() {
   // mode a successful login posts back to the widget and closes the tab instead
   // of routing into onboarding (the visitor may not own a site).
   const [notchLogin, setNotchLogin] = useState(false)
+  const [tab, setTab] = useState<'global' | 'friends'>('global')
   const [feed, setFeed] = useState<FeedUpdate[] | null>(null)
+  const [feedNeedsAuth, setFeedNeedsAuth] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const { direction, atTop } = useScrollDirection()
+  // Hide the action buttons + tabs while scrolling down; the logo shrinks to its
+  // icon once away from the top.
+  const buttonsHidden = direction === 'down' && !atTop
 
   const user = session?.user
   const initial = user?.name?.[0]?.toUpperCase() ?? user?.email?.[0]?.toUpperCase()
+  // Row counts that keep the pinned sidebar within one screen height.
+  const { notifCap, memberCap } = useFitCounts(!!user)
 
-  // Load the global feed (live sites that have a page snapshot).
+  // Load the active feed (global = every live site with a snapshot; friends =
+  // only sites the viewer follows). Refetched whenever the tab changes.
   useEffect(() => {
     let alive = true
-    fetch('/api/feed')
+    setFeed(null)
+    setFeedNeedsAuth(false)
+    fetch(`/api/feed?scope=${tab}`)
       .then((r) => (r.ok ? r.json() : { items: [] }))
-      .then((d) => alive && setFeed(d.items ?? []))
+      .then((d) => {
+        if (!alive) return
+        setFeed(d.items ?? [])
+        setFeedNeedsAuth(!!d.requiresAuth)
+      })
       .catch(() => alive && setFeed([]))
     return () => {
       alive = false
     }
-  }, [])
+  }, [tab])
 
   // Set in an effect (not render) to avoid an SSR/client hydration mismatch.
   useEffect(() => {
@@ -180,17 +288,44 @@ function HomePage() {
 
   return (
     <div className="min-h-screen bg-white text-black text-sm">
-      {/* Navbar */}
-      <nav className="border-b border-black/[0.08] px-5 h-16 flex items-center shrink-0">
-        <span className="font-display flex items-center gap-2 text-[40px] leading-none">
-          <VetkaLogo size={40} />
-          Vetka
-        </span>
-        <div className="ml-auto flex items-center gap-5">
+      {/* Floating pill nav — no bar. The logo sits on its own frosted pill (icon+text
+          ⇄ icon); the action cluster floats opposite it. Both fade on scroll-down and
+          return on scroll-up. The 64px sticky strip is transparent, so feed content
+          scrolls under the pills. */}
+      <header className="sticky top-0 z-40 px-4 h-16 flex items-center justify-between pointer-events-none">
+        <a
+          href="/"
+          className="pointer-events-auto inline-flex items-center rounded-full p-1 border border-white/10 backdrop-blur-md font-display text-[30px] leading-none text-white"
+          style={{
+            background: 'rgba(24,24,27,0.55)',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.14)',
+          }}
+        >
+          <span className="flex h-10 w-10 items-center justify-center shrink-0">
+            <VetkaLogo size={32} />
+          </span>
+          <span
+            // -translate-y nudges the wordmark up for *optical* centering against the
+            // mark — Anthony's line box sits the glyphs low, so box-centering looks off.
+            className={`-translate-y-[3px] overflow-hidden whitespace-nowrap transition-all duration-200 ${
+              buttonsHidden ? 'max-w-0 opacity-0' : 'max-w-[160px] opacity-100 pl-1 pr-3'
+            }`}
+          >
+            Vetka
+          </span>
+        </a>
+        <div
+          className={`pointer-events-auto transition-all duration-200 ${
+            buttonsHidden ? '-translate-y-2 opacity-0 pointer-events-none' : ''
+          }`}
+        >
           {user ? (
-            <>
+            <div className="flex items-center gap-3 rounded-full bg-white/70 backdrop-blur-md ring-1 ring-black/[0.06] pl-4 pr-1.5 py-1.5">
               <span className="text-zinc-500">{NOTIFICATIONS.length} notifications</span>
-              <a href="/sites" className="underline underline-offset-2">
+              <a
+                href="/sites"
+                className="rounded-full bg-black px-4 py-1.5 text-sm text-white hover:bg-zinc-800 transition-colors"
+              >
                 Edit site →
               </a>
               <div ref={menuRef} className="relative">
@@ -229,40 +364,73 @@ function HomePage() {
                   </div>
                 )}
               </div>
-            </>
+            </div>
           ) : (
             <button
               onClick={() => setShowLogin(true)}
-              className="underline underline-offset-2"
+              className="rounded-full bg-black px-4 py-1.5 text-sm text-white hover:bg-zinc-800 transition-colors"
             >
               Log in
             </button>
           )}
         </div>
-      </nav>
+      </header>
 
-      <div className="flex" style={{ minHeight: 'calc(100vh - 65px)' }}>
-        {/* Feed */}
-        <main className="flex-1 border-r border-black/[0.08]">
-          <SectionLabel>Global feed</SectionLabel>
+      <div className="flex" style={{ minHeight: 'calc(100vh - 64px)' }}>
+        {/* Feed. TODO(branches): dimmed tree-root lines weave through this background. */}
+        <main className="flex-1 min-w-0">
+          {/* Feed tabs — a floating frosted segmented control pinned under the nav,
+              aligned with the sidebar headers. Collapse on scroll-down, return on
+              scroll-up. */}
+          <div
+            className={`sticky top-16 z-30 px-3 overflow-hidden transition-all duration-200 ${
+              buttonsHidden ? 'max-h-0 pt-0 pb-0 opacity-0 -translate-y-1 pointer-events-none' : 'max-h-20 pt-4 pb-2 opacity-100'
+            }`}
+          >
+            <div
+              role="tablist"
+              className="inline-flex items-center gap-1 rounded-full bg-white/70 backdrop-blur-md ring-1 ring-black/[0.06] p-1"
+            >
+              <TabPill active={tab === 'global'} onClick={() => setTab('global')}>
+                Global
+              </TabPill>
+              <TabPill active={tab === 'friends'} onClick={() => setTab('friends')}>
+                Friends
+              </TabPill>
+            </div>
+          </div>
           <div className="px-2 py-1.5">
             {feed === null ? (
               <div className="px-3 py-6 text-zinc-400">Loading feed…</div>
+            ) : feedNeedsAuth ? (
+              <div className="px-3 py-8 flex flex-col items-start gap-3 text-zinc-400">
+                <span>Log in to see updates from sites you follow.</span>
+                <button
+                  onClick={() => setShowLogin(true)}
+                  className="rounded-full bg-black px-4 py-1.5 text-sm text-white hover:bg-zinc-800 transition-colors"
+                >
+                  Log in
+                </button>
+              </div>
             ) : feed.length === 0 ? (
-              <div className="px-3 py-6 text-zinc-400">No updates yet.</div>
+              <div className="px-3 py-6 text-zinc-400">
+                {tab === 'friends' ? "You're not following anyone yet." : 'No updates yet.'}
+              </div>
             ) : (
               feed.map((item, i) => <FeedItem key={item.domain + i} item={item} />)
             )}
           </div>
         </main>
 
-        {/* Right sidebar */}
-        <aside className="w-72 shrink-0">
+        {/* Right sidebar — a pinned rail that stays put while the feed scrolls; rows
+            are capped to fit one screen height (no rail/page scroll). Hidden on narrow
+            screens so the feed gets the full width. */}
+        <aside className="hidden lg:flex w-72 shrink-0 flex-col sticky top-16 self-start h-[calc(100vh-64px)] overflow-hidden">
           {user && (
             <>
               <SectionLabel>Notifications</SectionLabel>
               <div className="px-2 py-1.5">
-                {NOTIFICATIONS.map((n, i) => (
+                {NOTIFICATIONS.slice(0, notifCap).map((n, i) => (
                   <div key={i} className="px-3 py-2 rounded-xl hover:bg-black/[0.04] transition-colors">
                     <div className="text-[13.5px] leading-snug">{n.text}</div>
                     <div className="text-xs text-zinc-400 mt-0.5">{n.time}</div>
@@ -273,7 +441,7 @@ function HomePage() {
           )}
           <SectionLabel>New members</SectionLabel>
           <div className="px-2 py-1.5">
-            {members.map((domain, i) => (
+            {members.slice(0, memberCap).map((domain, i) => (
               <a
                 key={i}
                 href={`https://${domain}`}

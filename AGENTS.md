@@ -67,7 +67,7 @@ site              id · domain(unique) · userId → user · kind(external|gener
                     · buildLog · liveSnapshotId → siteSnapshot (current live version)
 siteSnapshot      id · siteId → site · storagePrefix · fileCount · byteSize · message
                     · status(pending|building|success|failed) · triggeredBy(agent|manual)
-siteImage         siteId → site · WebP blob (page thumbnail; capture still a stub)
+siteImage         siteId → site · WebP blob (page thumbnail; 16:9 1280×720, scrollbar-free)
 follow            followerId → site · followeeId → site  (unique pair)
 message           fromId → site · toId → site · body · readAt
 reaction          pageUrl(indexed) · siteId → site · authorUserId → user

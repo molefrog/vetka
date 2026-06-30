@@ -1,13 +1,17 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { desc, inArray } from 'drizzle-orm'
+import { and, desc, eq, inArray } from 'drizzle-orm'
 import { db } from '../../db'
-import { site, siteImage } from '../../db/schema'
-import { corsJson, corsOptions } from '../../lib/notch-social'
+import { follow, site, siteImage } from '../../db/schema'
+import { corsJson, corsOptions, getViewer } from '../../lib/notch-social'
 
-// GET /api/feed — the global feed: live sites that have at least one page
-// snapshot, most-recently-updated first. Each item carries a bit of info about
-// the person plus their domain, from which the home page derives the snapshot
-// image (GET /api/sites/$domain/snapshot).
+// GET /api/feed — site updates with a page snapshot, most-recently-updated
+// first. Each item carries a bit of info about the person plus their domain,
+// from which the home page derives the snapshot image
+// (GET /api/sites/$domain/snapshot).
+//
+//   ?scope=global  (default) — every live site that has a snapshot.
+//   ?scope=friends           — only sites the logged-in viewer follows. Needs a
+//                              session; logged out → { items: [], requiresAuth }.
 //
 // Display name + action are derived here (no name column is populated yet):
 // the person's name lives in the domain slug (e.g. dasha-volkova.vercel.app).
@@ -39,10 +43,26 @@ export const Route = createFileRoute('/api/feed')({
       OPTIONS: async ({ request }) => corsOptions(request),
 
       GET: async ({ request }) => {
+        const scope = new URL(request.url).searchParams.get('scope') ?? 'global'
+
         // Sites that actually have a snapshot image.
         const sitesWithImage = db
           .selectDistinct({ siteId: siteImage.siteId })
           .from(siteImage)
+
+        // Friends scope: restrict to the viewer's followees. Bail early (with a
+        // hint for the UI) when there's no session or nothing followed yet.
+        let followeeIds: string[] | undefined
+        if (scope === 'friends') {
+          const viewer = await getViewer(request)
+          if (!viewer?.site) return corsJson(request, { items: [], requiresAuth: true })
+          const follows = await db
+            .select({ followeeId: follow.followeeId })
+            .from(follow)
+            .where(eq(follow.followerId, viewer.site.id))
+          followeeIds = follows.map((f) => f.followeeId)
+          if (followeeIds.length === 0) return corsJson(request, { items: [] })
+        }
 
         const rows = await db
           .select({
@@ -51,7 +71,11 @@ export const Route = createFileRoute('/api/feed')({
             updatedAt: site.updatedAt,
           })
           .from(site)
-          .where(inArray(site.id, sitesWithImage))
+          .where(
+            followeeIds
+              ? and(inArray(site.id, sitesWithImage), inArray(site.id, followeeIds))
+              : inArray(site.id, sitesWithImage),
+          )
           .orderBy(desc(site.updatedAt))
           .limit(50)
 

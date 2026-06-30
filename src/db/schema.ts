@@ -156,7 +156,7 @@ export const message = pgTable('message', {
 
 // ---------------------------------------------------------------------------
 // Site images — visual thumbnails stored as binary blobs.
-// Format: WebP, exactly 800×600 (4:3). Many rows per site; the most recent
+// Format: WebP, 1280×720 (16:9). Many rows per site; the most recent
 // row is the "current" thumbnail. Query: WHERE site_id = ? ORDER BY created_at DESC LIMIT 1
 // ---------------------------------------------------------------------------
 

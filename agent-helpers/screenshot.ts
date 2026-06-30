@@ -75,9 +75,13 @@ await Bun.write(
   `from playwright.sync_api import sync_playwright
 with sync_playwright() as p:
     b = p.chromium.launch(args=['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'])
-    page = b.new_page(viewport={'width': 1280, 'height': 900})
+    # 16:9 viewport — the feed frames snapshots as aspect-video, so we capture the
+    # hero view (not full_page) at the same ratio to maximise the visible area.
+    page = b.new_page(viewport={'width': 1280, 'height': 720})
     page.goto(${JSON.stringify(url)}, wait_until='load', timeout=30000)
-    page.screenshot(path=${JSON.stringify(output)}, full_page=True)
+    # Hide scrollbars so they never bake into the snapshot.
+    page.add_style_tag(content='html{scrollbar-width:none!important} ::-webkit-scrollbar{display:none!important}')
+    page.screenshot(path=${JSON.stringify(output)}, full_page=False)
     b.close()
 print('✓ Saved:', ${JSON.stringify(output)})
 `,

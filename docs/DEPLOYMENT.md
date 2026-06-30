@@ -181,4 +181,7 @@ Passwordless: **email OTP**, **Google**, **GitHub** (`src/lib/auth.server.ts`). 
 ## Open follow-ups (not blockers)
 - Worker + KV direct-from-R2 serving (§4 Option B) for scale.
 - Re-hydrate the agent sandbox from the latest snapshot when a session resumes after long idle (otherwise `/workspace` source may be gone; deployed files are always safe in R2).
-- Screenshot capture into `site_image` (currently stubbed) for feed thumbnails.
+- Automate feed-thumbnail capture into `site_image` (no scheduler yet). To regenerate
+  manually: `screenshot.ts <url> out.png` (captures 16:9 1280×720, scrollbar-free) →
+  `update-site-image.mjs --domain <domain> --image out.png` (stores it as 1280×720 WebP).
+  Both rules live in those scripts; keep thumbnails 16:9 + scrollbar-free.

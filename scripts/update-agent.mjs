@@ -54,6 +54,12 @@ The relay returns {"ok":true,"url":"...","snapshotId":"...","fileCount":N}. Toke
 Only take screenshots when the user explicitly asks. Serve dist/ locally and capture it:
   export PATH="$HOME/.bun/bin:$PATH"
   bun /workspace/scripts/screenshot.ts --serve dist / output.png
+screenshot.ts captures a 16:9 (1280x720), scrollbar-free hero shot — the home feed
+frames thumbnails as aspect-video, so always capture through it (never bake in a
+scrollbar or use a non-16:9 viewport). To (re)generate a site's feed thumbnail, pipe
+that capture through scripts/update-site-image.mjs, which stores it as 1280x720 WebP
+in site_image:
+  node /workspace/scripts/update-site-image.mjs --domain <domain> --image output.png
 
 ## Style
 Be direct and brief. Prefer working code over long explanations. Deploy before reporting done.`

@@ -1,6 +1,6 @@
 /**
  * Update the thumbnail image for a site.
- * Resizes the input to 800×600 WebP (4:3, cover crop) and inserts a new
+ * Resizes the input to 1280×720 WebP (16:9, cover crop) and inserts a new
  * row into site_image. The latest row per site is the "current" thumbnail.
  *
  * Usage:
@@ -67,11 +67,11 @@ if (!resolvedSiteId) {
 }
 
 // ---------------------------------------------------------------------------
-// Resize image → 800×600 WebP
+// Resize image → 1280×720 WebP (16:9)
 // ---------------------------------------------------------------------------
 
-const TARGET_W = 800
-const TARGET_H = 600
+const TARGET_W = 1280
+const TARGET_H = 720
 
 const raw = await readFile(imagePath)
 const webpBuffer = await sharp(raw)
