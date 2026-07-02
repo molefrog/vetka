@@ -57,9 +57,40 @@ export const createSite = createServerFn({ method: 'POST' })
 
     const { db } = await import('../db')
     const { site } = await import('../db/schema')
-
-    const { sql } = await import('drizzle-orm')
+    const { eq, sql } = await import('drizzle-orm')
     const kind = data.kind ?? 'external'
+
+    // Validate the subdomain server-side for generated sites (the UI calls
+    // checkSubdomain, but that guard must not be the only one). Reuse the same
+    // format regex + reserved list.
+    if (kind === 'generated') {
+      const sub = (data.subdomain ?? '').trim().toLowerCase()
+      if (!SUBDOMAIN_RE.test(sub) || RESERVED_SUBDOMAINS.has(sub)) {
+        throw new Error('Invalid subdomain')
+      }
+    }
+
+    // Ownership guard: a domain already claimed by someone else must not be
+    // reassigned to the caller (prevents site takeover via upsert).
+    const [existing] = await db
+      .select({ id: site.id, userId: site.userId })
+      .from(site)
+      .where(eq(site.domain, data.domain))
+      .limit(1)
+    if (existing && existing.userId !== session.user.id) {
+      throw new Error('Domain already registered')
+    }
+
+    // One site per user: block creating a second, distinct site.
+    if (!existing) {
+      const [own] = await db
+        .select({ id: site.id })
+        .from(site)
+        .where(eq(site.userId, session.user.id))
+        .limit(1)
+      if (own) throw new Error('You already have a site')
+    }
+
     const [created] = await db
       .insert(site)
       .values({
@@ -70,9 +101,10 @@ export const createSite = createServerFn({ method: 'POST' })
         status: 'draft',
       })
       .onConflictDoUpdate({
+        // Same-owner re-submit updates in place. userId is intentionally NOT in
+        // the update set — ownership can never change through this path.
         target: site.domain,
         set: {
-          userId: session.user.id,
           kind,
           subdomain: data.subdomain ?? null,
           updatedAt: sql`now()`,

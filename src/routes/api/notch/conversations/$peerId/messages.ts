@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { eq } from 'drizzle-orm'
 import { db } from '../../../../../db'
 import { message, site } from '../../../../../db/schema'
-import { corsJson, corsOptions, getViewer } from '../../../../../lib/notch-social'
+import { corsJson, corsOptions, getViewer, isAllowedRequest } from '../../../../../lib/notch-social'
 
 // POST /api/notch/conversations/$peerId/messages { text } — send a DM.
 export const Route = createFileRoute('/api/notch/conversations/$peerId/messages')({
@@ -11,6 +11,9 @@ export const Route = createFileRoute('/api/notch/conversations/$peerId/messages'
       OPTIONS: async ({ request }) => corsOptions(request),
 
       POST: async ({ request, params }) => {
+        if (!(await isAllowedRequest(request))) {
+          return corsJson(request, { error: 'forbidden_origin' }, { status: 403 })
+        }
         const viewer = await getViewer(request)
         if (!viewer) return corsJson(request, { error: 'unauthorized' }, { status: 401 })
         if (!viewer.site) return corsJson(request, { needsSite: true }, { status: 409 })

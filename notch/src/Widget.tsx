@@ -51,7 +51,6 @@ export type NotchMode = 'anonymous' | 'owner' | 'visitor'
 
 interface User {
   name: string
-  email: string
   image?: string | null
   handle?: string | null
   domain?: string | null
@@ -466,7 +465,8 @@ export function Widget({ apiBase, forceMode, forceDomain }: Props) {
               x,
               y,
               authorName: user.domain ?? user.handle ?? user.name,
-              authorSeed: user.email,
+              // Non-PII stable seed for the avatar (reactions are world-readable).
+              authorSeed: user.domain ?? user.handle ?? user.name,
             })
             setReactMode(false)
             setPickedSignal(null)
@@ -601,10 +601,10 @@ export function Widget({ apiBase, forceMode, forceDomain }: Props) {
                 {slot.kind === 'avatar' ? (
                   mode === 'owner' ? (
                     // Owner: favicon of the current site, facehash fallback.
-                    <Avatar src={faviconUrl} seed={user?.email ?? 'anon'} />
+                    <Avatar src={faviconUrl} seed={user?.domain ?? user?.handle ?? 'anon'} />
                   ) : (
                     // Visitor: the viewer's own avatar from the API, facehash fallback.
-                    <Avatar src={user?.image ?? undefined} seed={user?.email ?? 'anon'} />
+                    <Avatar src={user?.image ?? undefined} seed={user?.domain ?? user?.handle ?? 'anon'} />
                   )
                 ) : (
                   <NotchIcon name={slot.key} size={25} />

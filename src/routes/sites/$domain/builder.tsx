@@ -13,7 +13,11 @@ export const Route = createFileRoute('/sites/$domain/builder')({
     if (!session?.user) throw redirect({ to: '/' })
   },
   loader: async ({ params }) => {
-    return { site: await getBuilderSiteData({ data: params.domain }) }
+    const site = await getBuilderSiteData({ data: params.domain })
+    // getBuilderSiteData returns null for non-owners / unknown domains — don't
+    // expose another user's builder.
+    if (!site) throw redirect({ to: '/' })
+    return { site }
   },
   component: BuilderPage,
 })

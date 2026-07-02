@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { and, eq } from 'drizzle-orm'
 import { auth } from '../../../lib/auth.server'
-import { getAnthropicClient } from '../../../lib/agent.server'
+import { getAnthropicClient, getOrCreateSession } from '../../../lib/agent.server'
 import { db } from '../../../db'
 import { site } from '../../../db/schema'
 
@@ -23,16 +23,19 @@ export const Route = createFileRoute('/api/agent/stream')({
           | { type: 'image'; source: { type: 'file'; file_id: string } }
           | { type: 'document'; source: { type: 'file'; file_id: string } }
 
-        const { sessionId, message, attachments } = await request.json() as {
-          sessionId: string
+        // sessionId is resolved server-side from the authenticated user — never
+        // trusted from the request body (that would let one user drive another
+        // user's agent session).
+        const { message, attachments } = await request.json() as {
           message: string
           attachments?: Array<{ file_id: string; mime_type: string; name?: string }>
         }
-        if (!sessionId || (!message?.trim() && !attachments?.length)) {
-          return Response.json({ error: 'Missing sessionId or message' }, { status: 400 })
+        if (!message?.trim() && !attachments?.length) {
+          return Response.json({ error: 'Missing message' }, { status: 400 })
         }
 
         const userId = authSession.user.id
+        const { sessionId } = await getOrCreateSession(userId)
 
         const [generated] = await db
           .select({ id: site.id, domain: site.domain, subdomain: site.subdomain })

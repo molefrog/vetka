@@ -6,6 +6,7 @@ import {
   corsJson,
   corsOptions,
   getViewer,
+  isAllowedRequest,
   siteProfiles,
 } from '../../../lib/notch-social'
 
@@ -61,6 +62,9 @@ export const Route = createFileRoute('/api/notch/follows')({
       },
 
       POST: async ({ request }) => {
+        if (!(await isAllowedRequest(request))) {
+          return corsJson(request, { error: 'forbidden_origin' }, { status: 403 })
+        }
         const viewer = await getViewer(request)
         if (!viewer) return corsJson(request, { error: 'unauthorized' }, { status: 401 })
         if (!viewer.site) return corsJson(request, { needsSite: true }, { status: 409 })
@@ -94,6 +98,9 @@ export const Route = createFileRoute('/api/notch/follows')({
       },
 
       DELETE: async ({ request }) => {
+        if (!(await isAllowedRequest(request))) {
+          return corsJson(request, { error: 'forbidden_origin' }, { status: 403 })
+        }
         const viewer = await getViewer(request)
         if (!viewer) return corsJson(request, { error: 'unauthorized' }, { status: 401 })
         if (!viewer.site) return corsJson(request, { needsSite: true }, { status: 409 })
